@@ -6,12 +6,12 @@ Created on Tue Dec  7 10:17:28 2021
 @author: dongting
 """
 import numpy
+import urx
 import socket
 import time
 import os
 import datetime
 import matplotlib.pyplot as plt
-import urx
 import serial
 import math
 import math3d as m3d
@@ -23,10 +23,7 @@ from mpl_toolkits import mplot3d
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import pi
-
-import numpy as np
 from scipy.signal import butter,filtfilt
-
 
 # For this code, really you should refer to urx python package, I just packed some common functions inside, for example, move and rotate around a axis
 
@@ -59,63 +56,43 @@ def rotate_around_h(angle_r):
 
     
 
-moving_vector_left = numpy.array((1,0,0))
-moving_vector_right = numpy.array((-1,0,0))
-moving_vector_forward = numpy.array((0,-1,0))
-moving_vector_backward = numpy.array((0,1,0))
+moving_vector_left = numpy.array((-1,0,0))
+moving_vector_right = numpy.array((1,0,0))
+moving_vector_forward = numpy.array((0,1,0))
+moving_vector_backward = numpy.array((0,-1,0))
 moving_vector_up = numpy.array((0,0,1))
 moving_vector_down = numpy.array((0,0,-1))
     
-
+ur_port = "192.168.0.110"
 tcp = ((0,0,0.1476,0,0,0))
-payload_m = 0.61
-payload_location = (0,0,0)    
+payload_m = 0.1
+payload_location = (0,0,0.15)
 ur = urx.Robot(ur_port)
 time.sleep(5)
-ur.set_tcp(tcp)
-ur.set_payload(payload_m, payload_location)
+# ur.set_tcp(tcp)
+# ur.set_payload(payload_m, payload_location)
+
+depth = 10/1000
+push_distance = 20/1000
+
+# test moving
+move_ur(ur,moving_vector_down*depth,0.01,1,wait=True)
+move_ur(ur,moving_vector_left*push_distance,0.01,1,wait=True)
+move_ur(ur,moving_vector_up*push_distance,0.01,1,wait=True)
+move_ur(ur,moving_vector_right*depth,0.01,1,wait=True)
+
+time_a = time.time()
+move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
+initial_pose = ur.get_pos()[:]
+pos_time = numpy.append(time.time()-time_a,initial_pose)
+
+try:
+    while True:
+        time_b = time.time()-time_a
+        position_data = ur.get_pos()[:]-initial_pose
+        current_data= numpy.append(time_b,position_data)
+except KeyboardInterrupt:
+    move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
+    plt.plot(current_data)
 
 
-# time_a = time.time()
-
-# move_ur(ur,moving_vector_down*depth,0.05,1,wait=False)
-# initial_pose = ur.get_pos()[:]
-# pos_time = numpy.append(time.time()-time_a,initial_pose)
-
-# try:
-#     while True:
-#         time_b = time.time()-time_a
-#         position_data = ur.get_pos()[:]-initial_pose
-#         current_data= numpy.append(time_b,position_data)
-# except KeyboardInterrupt:
-#     move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
-#     plt.plot()
-
-
-pose_90 = [-0.75*pi,-pi/2,pi/2,-pi/2,-pi/2,55/36*pi]
-ur.movej(pose_90,vel=0.08,acc=1,wait=True,threshold=5)
-
-# rotate around the h axis
-
-
-# joint level control to move the robot
-# pose_90 = ur.getj()
-
-
-#init robot pose
-# demo_angle  = numpy.array([pi/2,0,0])
-# print("Initial Joint:{}".format(numpy.rad2deg(ur.getj())))
-# print("Initial Loc:{}".format([ur.get_pos()*1000]))
-# rotate_around_h(demo_angle)
-# print("Middle Loc:{}".format([ur.get_pos()*1000]))
-# print("Middle Joint:{}".format(numpy.rad2deg(ur.getj())))
-# rotate_around_h(-1*demo_angle)
-# print("End Loc:{}".format([ur.get_pos()*1000]))
-# print("End Joint:{}".format(numpy.rad2deg(ur.getj())))
-
-# rorate in z-axis
-demo_angle  = numpy.array([0,0,-pi/6])
-rotate_around_h(demo_angle)
-
-# exp_pos = [-0.13606, 0.50324, 0.50298]
-# ur.set_pos(exp_pos,vel=0.05,acc=1,wait=False,threshold=5)
