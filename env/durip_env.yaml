@@ -12,7 +12,6 @@ dependencies:
     - git+https://github.com/SintefManufacturing/python-urx.git  # The key change
     - math3d==3.1.0
     - datetime
-    - time
     - struct
     - os
     - socket
