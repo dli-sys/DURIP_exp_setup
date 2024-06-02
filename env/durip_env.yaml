@@ -1,0 +1,14 @@
+name: durip_env  # Name of the environment
+channels:             
+  - defaults
+
+dependencies:
+  - python=3.7        # Python version and specific packages
+  - numpy
+  - matplotlib
+
+  - pip:
+    - git+https://github.com/SintefManufacturing/python-urx.git  # The key change
+    - math3d==3.1.0
+    - datetime
+    - time

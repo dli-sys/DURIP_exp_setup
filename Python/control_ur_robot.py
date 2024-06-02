@@ -12,18 +12,10 @@ import time
 import os
 import datetime
 import matplotlib.pyplot as plt
-import serial
-import math
-import math3d as m3d
-import yaml
-import logging
 import time
-import serial
-from mpl_toolkits import mplot3d
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import pi
-from scipy.signal import butter,filtfilt
 
 # For this code, really you should refer to urx python package, I just packed some common functions inside, for example, move and rotate around a axis
 
@@ -67,7 +59,7 @@ ur_port = "192.168.0.110"
 tcp = ((0,0,0.1476,0,0,0))
 payload_m = 0.1
 payload_location = (0,0,0.15)
-ur = urx.Robot(ur_port)
+ur = urx.Robot(ur_port,use_rt=True,urFirm=5.9)
 time.sleep(5)
 # ur.set_tcp(tcp)
 # ur.set_payload(payload_m, payload_location)
