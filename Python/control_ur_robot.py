@@ -29,7 +29,8 @@ def move_ur(ur,moving_vector,v,a,wait=False):
     ur.movel(current_pose,vel=v,acc=a,wait=wait)
 
 
-def rotate_around_h(angle_r): 
+def rotate_around_h(angle_r):
+    # you must set the TCP correctly
     # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
     # if rotate around the base flange, set tcp as zeros
     # rotate around a axis
@@ -46,7 +47,8 @@ def rotate_around_h(angle_r):
     new_pos = pose*Tct
     ur.movel(new_pos,vel=0.03,acc=1,wait=True,threshold=5)
 
-    
+# Define moving vector according to the table frames
+# unit is M
 
 moving_vector_left = numpy.array((-1,0,0))
 moving_vector_right = numpy.array((1,0,0))
@@ -55,14 +57,18 @@ moving_vector_backward = numpy.array((0,-1,0))
 moving_vector_up = numpy.array((0,0,1))
 moving_vector_down = numpy.array((0,0,-1))
     
+# Define the robot
 ur_port = "192.168.0.110"
-tcp = ((0,0,0.1476,0,0,0))
-payload_m = 0.1
-payload_location = (0,0,0.15)
 ur = urx.Robot(ur_port,use_rt=True,urFirm=5.9)
 time.sleep(5)
-# ur.set_tcp(tcp)
-# ur.set_payload(payload_m, payload_location)
+
+# Define the TCP and Payload
+tcp = ((0,0,0.30,0,0,0))
+payload_m = 0.1
+payload_location = (0,0,0.15)
+
+ur.set_tcp(tcp)
+ur.set_payload(payload_m, payload_location)
 
 depth = 10/1000
 push_distance = 20/1000
@@ -70,9 +76,17 @@ push_distance = 20/1000
 # test moving
 move_ur(ur,moving_vector_down*depth,0.01,1,wait=True)
 move_ur(ur,moving_vector_left*push_distance,0.01,1,wait=True)
-move_ur(ur,moving_vector_up*push_distance,0.01,1,wait=True)
-move_ur(ur,moving_vector_right*depth,0.01,1,wait=True)
+move_ur(ur,moving_vector_up*depth,0.01,1,wait=True)
+move_ur(ur,moving_vector_right*push_distance,0.01,1,wait=True)
 
+
+# Test get some data
+print(ur.get_pose())
+print(ur.get_pos())
+print(ur.getj())
+
+
+# Test collect some data
 time_a = time.time()
 move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
 initial_pose = ur.get_pos()[:]
