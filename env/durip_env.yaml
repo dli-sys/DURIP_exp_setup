@@ -6,6 +6,7 @@ dependencies:
   - python=3.7        # Python version and specific packages
   - numpy
   - matplotlib
+  - pip
 
   - pip:
     - git+https://github.com/SintefManufacturing/python-urx.git  # The key change
