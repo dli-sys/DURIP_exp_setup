@@ -9,7 +9,6 @@ import numpy
 import urx
 import socket
 import time
-import os
 import datetime
 import matplotlib.pyplot as plt
 import time
