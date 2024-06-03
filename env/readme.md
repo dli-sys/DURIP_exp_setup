@@ -5,8 +5,8 @@ To install the package, in conda terminal, cd to current directory and use the f
 git clone git@github.com:dli-sys/DURIP_exp_setup.git
 cd DURIP_exp_setup
 cd env
-conda env create -f durip_env.yaml
-conda activate durip_env
+conda env create -f durip_env.yaml -n my_durip_env
+conda activate my_durip_env
 ```
 
 ## Step by step
