@@ -6,10 +6,9 @@ Created on Tue Dec  7 10:17:28 2021
 @author: dongting
 """
 import numpy
-import urx
+
 import socket
 import time
-import os
 import datetime
 import matplotlib.pyplot as plt
 import serial
@@ -24,7 +23,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 from numpy import pi
 from scipy.signal import butter,filtfilt
+#
+# import os, sys
+# sys.path.append(os.path.join(os.path.dirname(__file__), "/urx"))
+# print(sys.path[-1])
+import urx
 
+
+ur = urx.Robot("192.168.0.110",use_rt=False)
+ur.get_tcp_force()
 # For this code, really you should refer to urx python package, I just packed some common functions inside, for example, move and rotate around a axis
 
 def Init_ur(ur_port):
@@ -72,19 +79,21 @@ time.sleep(5)
 # ur.set_tcp(tcp)
 # ur.set_payload(payload_m, payload_location)
 
-depth = 10/1000
-push_distance = 20/1000
+depth = 50/1000
+push_distance = 200/1000
 
 # test moving
-move_ur(ur,moving_vector_down*depth,0.01,1,wait=True)
-move_ur(ur,moving_vector_left*push_distance,0.01,1,wait=True)
-move_ur(ur,moving_vector_up*push_distance,0.01,1,wait=True)
-move_ur(ur,moving_vector_right*depth,0.01,1,wait=True)
+exp_vel = 5/1000
+exp_acc = 1
+move_ur(ur,moving_vector_down*depth,exp_vel,1,wait=True)
+move_ur(ur,moving_vector_left*push_distance,exp_vel,1,wait=True)
+move_ur(ur,moving_vector_up*push_distance,exp_vel,1,wait=True)
+move_ur(ur,moving_vector_right*depth,exp_vel,1,wait=True)
 
-time_a = time.time()
-move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
-initial_pose = ur.get_pos()[:]
-pos_time = numpy.append(time.time()-time_a,initial_pose)
+# time_a = time.time()
+# move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
+# initial_pose = ur.get_pos()[:]
+# pos_time = numpy.append(time.time()-time_a,initial_pose)
 
 try:
     while True:
@@ -92,7 +101,8 @@ try:
         position_data = ur.get_pos()[:]-initial_pose
         current_data= numpy.append(time_b,position_data)
 except KeyboardInterrupt:
-    move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
-    plt.plot(current_data)
+    ur.close()
+    # move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
+    # plt.plot(current_data)
 
 

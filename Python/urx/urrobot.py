@@ -98,10 +98,11 @@ class URRobot(object):
         return measured force in TCP
         if wait==True, waits for next packet before returning
         """
-        return self.rtmon.getTCFForce(wait)
-        # print(self)
+        # self
+        # return self.rtmon.getTCFForce(wait)
+        print(self)
         #
-        # return self.secmon.get_tcp_force(wait)
+        return self.secmon.get_tcp_force(wait)
         # return self.rtmon.getTCFForce(wait)
 
 
