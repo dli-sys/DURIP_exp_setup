@@ -1,13 +1,11 @@
 import urx
 import threading
 import time
-import numpy as np
 import csv
 import os
 import datetime
 import socket
 import ctypes
-import argparse
 import numpy
 
 # Import your existing files
@@ -28,6 +26,7 @@ class DataLogger:
         if self.use_robot:
             try:
                 self.robot = urx.Robot(robot_ip, use_rt=True, urFirm=5.9)
+
                 self.robot_data = []
                 time.sleep(5)
                 self.initial_pose = self.robot.get_pos()
@@ -56,6 +55,14 @@ class DataLogger:
         if self.use_ati:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
 
+
+    def force_controlled_intrusion(self):
+        pass
+
+    def robot_pose_calibration(self):
+        pass
+
+    def
 
 
     def log_robot_data(self):
@@ -135,32 +142,37 @@ class DataLogger:
 
 if __name__ == '__main__':
 
-    # parser = argparse.ArgumentParser(description="Data logger for robot and ATI sensor.")
-    # parser.add_argument("--robot_ip", help="IP address of the robot (optional)")
-    # parser.add_argument("--ati_ip", help="IP address of the ATI sensor (optional)")
-    # args = parser.parse_args()
 
     try:
 
         ati_ip = "192.168.0.121"
-        data_logger = DataLogger(ati_ip=ati_ip)
+        robot_ip = "192.168.0.110"
+        data_logger = DataLogger(ati_ip=ati_ip,robot_ip=None)
         # robot_ip = "192.168.0.110"
         # data_logger = DataLogger(robot_ip=args.robot_ip, ati_ip=args.ati_ip)
 
-    # Robot moving loop
-        # ur = urx.Robot(robot_ip, use_rt=False, urFirm=5.9)
-        # # Let the data logger run for some time...
-        # time.sleep(3)
-        #
-        # moving_vector_left = numpy.array((-1, 0, 0))
-        # moving_vector_right = numpy.array((1, 0, 0))
-        # moving_vector_forward = numpy.array((0, 1, 0))
-        # moving_vector_backward = numpy.array((0, -1, 0))
-        # moving_vector_up = numpy.array((0, 0, 1))
-        # moving_vector_down = numpy.array((0, 0, -1))
+        # Robot moving loop
+        # To access the robot, one can use
+        ur16 = data_logger.robot
+
+        # Define robot variables
+        moving_vector_left = numpy.array((-1, 0, 0))
+        moving_vector_right = numpy.array((1, 0, 0))
+        moving_vector_forward = numpy.array((0, 1, 0))
+        moving_vector_backward = numpy.array((0, -1, 0))
+        moving_vector_up = numpy.array((0, 0, 1))
+        moving_vector_down = numpy.array((0, 0, -1))
+        tcp = ((0, 0, 0.30, 0, 0, 0))
+        payload_m = 0.1
+        payload_location = (0, 0, 0.15)
+
+        ur16.set_tcp(tcp)
+        ur16.set_payload(payload_m, payload_location)
+
+
         #
         # ## Do something over here for your exp
-        # move_ur(ur,moving_vector_up*0.03,0.01,1,wait=True)
+        # move_ur(ur16,moving_vector_up*0.03,0.01,1,wait=True)
 
         time.sleep(3)
 
