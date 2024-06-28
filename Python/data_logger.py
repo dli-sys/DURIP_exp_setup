@@ -1,24 +1,22 @@
 import urx
 import threading
 import time
-import numpy as np
 import csv
 import os
 import datetime
 import socket
 import ctypes
-import argparse
 import numpy
 
 # Import your existing files
 from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
-from control_ur_robot import move_ur,rotate_around_h
+from control_ur_robot import move_ur, rotate_around_h
 
 
 class DataLogger:
-    def __init__(self, robot_ip=None, ati_ip=None):
-        self.use_robot = robot_ip is not None
-        self.use_ati = ati_ip is not None
+    def __init__(self, use_ati = True,use_robot = False, robot_ip="192.168.0.110", ati_ip="192.168.0.121"):
+        self.use_robot = use_robot
+        self.use_ati = use_ati
 
 
         if not self.use_robot and not self.use_ati:
@@ -57,6 +55,11 @@ class DataLogger:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
 
 
+    def force_controlled_intrusion(self):
+        pass
+
+    def robot_pose_calibration(self):
+        pass
 
     def log_robot_data(self):
         while not self.stop_event.is_set():
@@ -65,8 +68,8 @@ class DataLogger:
                 pos_data = self.robot.get_pos() - self.initial_pose
                 xyz = self.robot.get_pos()
                 rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
-                isRunning_flag = int(self.robot.is_program_running())
-                self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, isRunning_flag))
+                is_running_flag = int(self.robot.is_program_running())
+                self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
                 self.index += 1
 
                 if self.index % 1000 == 0:
@@ -118,7 +121,6 @@ class DataLogger:
                 load_cell_writer.writerows(self.load_cell_data)
                 print(f"Data saved to {load_cell_filename} ")
 
-
     def stop_logging(self):
         self.stop_event.set()
         time.sleep(1)  # Allow time for threads to stop gracefully
@@ -132,35 +134,39 @@ class DataLogger:
                     print('Exception raise failure')
         self.save_data()
 
-
 if __name__ == '__main__':
-
-    # parser = argparse.ArgumentParser(description="Data logger for robot and ATI sensor.")
-    # parser.add_argument("--robot_ip", help="IP address of the robot (optional)")
-    # parser.add_argument("--ati_ip", help="IP address of the ATI sensor (optional)")
-    # args = parser.parse_args()
 
     try:
 
         ati_ip = "192.168.0.121"
-        data_logger = DataLogger(ati_ip=ati_ip)
-        # robot_ip = "192.168.0.110"
-        # data_logger = DataLogger(robot_ip=args.robot_ip, ati_ip=args.ati_ip)
+        robot_ip = "192.168.0.110"
+        use_ati = True
+        use_robot = True
 
-    # Robot moving loop
-        # ur = urx.Robot(robot_ip, use_rt=False, urFirm=5.9)
-        # # Let the data logger run for some time...
-        # time.sleep(3)
-        #
-        # moving_vector_left = numpy.array((-1, 0, 0))
-        # moving_vector_right = numpy.array((1, 0, 0))
-        # moving_vector_forward = numpy.array((0, 1, 0))
-        # moving_vector_backward = numpy.array((0, -1, 0))
-        # moving_vector_up = numpy.array((0, 0, 1))
-        # moving_vector_down = numpy.array((0, 0, -1))
-        #
-        # ## Do something over here for your exp
-        # move_ur(ur,moving_vector_up*0.03,0.01,1,wait=True)
+        data_logger = DataLogger(use_ati=use_ati,use_robot=use_robot)
+
+
+        # Robot moving loop
+        # To access the robot, one can use
+        if use_robot:
+            ur16 = data_logger.robot
+
+            # Define robot variables
+            moving_vector_left = numpy.array((-1, 0, 0))
+            moving_vector_right = numpy.array((1, 0, 0))
+            moving_vector_forward = numpy.array((0, 1, 0))
+            moving_vector_backward = numpy.array((0, -1, 0))
+            moving_vector_up = numpy.array((0, 0, 1))
+            moving_vector_down = numpy.array((0, 0, -1))
+            tcp = ((0, 0, 0.30, 0, 0, 0))
+            payload_m = 0.1
+            payload_location = (0, 0, 0.15)
+
+            ur16.set_tcp(tcp)
+            ur16.set_payload(payload_m, payload_location)
+
+            move_ur(ur16,moving_vector_up*0.05,0.01,1,wait=True)
+            move_ur(ur16,moving_vector_down*0.05,0.01,1,wait=True)
 
         time.sleep(3)
 
