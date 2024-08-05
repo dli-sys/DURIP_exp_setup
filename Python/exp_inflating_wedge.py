@@ -7,6 +7,7 @@ import datetime
 import socket
 import ctypes
 import numpy
+from pytictoc import TicToc
 
 # Import your existing files
 from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
@@ -47,7 +48,6 @@ class DataLogger:
         # Initialize other variables
         self.stop_event = threading.Event()
         self.index = 0
-        self.initial_timestamp = time.time()
 
         # Start threads only for the enabled devices
         if self.use_robot:
@@ -56,20 +56,8 @@ class DataLogger:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
 
 
-    def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
-        moving_vector_down = numpy.array((0, 0, -1*step))
-        calib_data_z = 0
-        while calib_data_z < intrusion_threshold:
-            desire_pose = self.robot.get_pose()
-            desire_pose.pos[:]+=moving_vector_down
-            self.robot.movel(desire_pose, acc=0.01, vel=0.5 / 1000, wait=True)
-            calib_data_list = 0
-            for j in range(3500):
-                calib_data_list += self.load_cell_data[-1][7]
-                # print(self.load_cell_data)
-            calib_data_z= abs(calib_data_list/3500)
-            print(f"Current z reading: {calib_data_z}")
-
+    def force_controlled_intrusion(self):
+        pass
 
     def robot_pose_calibration(self):
         pass
@@ -78,7 +66,7 @@ class DataLogger:
     def log_robot_data(self):
         while not self.stop_event.is_set():
             try:
-                timestamp = time.time() - self.initial_timestamp
+                timestamp = time.time()
                 pos_data = self.robot.get_pos() - self.initial_pose
                 xyz = self.robot.get_pos()
                 rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
@@ -101,7 +89,7 @@ class DataLogger:
     def log_load_cell_data(self):
         while not self.stop_event.is_set():
             try:
-                timestamp = time.time() - self.initial_timestamp
+                timestamp = time.time()
                 data = self.ati_sensor.collect_sample()
                 self.load_cell_data.append((timestamp, self.index, *data))
                 self.index += 1
@@ -157,9 +145,9 @@ if __name__ == '__main__':
 
         ati_ip = "192.168.0.121"
         robot_ip = "192.168.0.110"
-        data_logger = DataLogger(ati_ip=ati_ip,robot_ip=robot_ip)
+        # data_logger = DataLogger(ati_ip=None,robot_ip=robot_ip)
         # robot_ip = "192.168.0.110"
-        # data_logger = DataLogger(robot_ip=args.robot_ip, ati_ip=args.ati_ip)
+        data_logger = DataLogger(robot_ip=robot_ip, ati_ip=ati_ip)
 
         # Robot moving loop
         # To access the robot, one can use
@@ -172,6 +160,8 @@ if __name__ == '__main__':
         moving_vector_backward = numpy.array((0, -1, 0))
         moving_vector_up = numpy.array((0, 0, 1))
         moving_vector_down = numpy.array((0, 0, -1))
+    #
+    #
         tcp = ((0, 0, 0.30, 0, 0, 0))
         payload_m = 0.1
         payload_location = (0, 0, 0.15)
@@ -179,16 +169,29 @@ if __name__ == '__main__':
         ur16.set_tcp(tcp)
         ur16.set_payload(payload_m, payload_location)
 
-
+        # ur16.set_a
         #
         # ## Do something over here for your exp
-        # move_ur(ur16,moving_vector_up*0.03,0.01,1,wait=True)
+        move_ur(ur16,moving_vector_down*0.03,0.01,1,wait=True)
 
-        time.sleep(3)
 
+
+        pressure_required = 5
+        scale_factor = 10
+        regulator_channel = 0
+
+        ur16.set_analog_out(regulator_channel, pressure_required / scale_factor)
+        toc(3)
+
+        move_ur(ur16, moving_vector_right * 0.03, 0.01, 1, wait=True)
+
+        move_ur(ur16, moving_vector_up * 0.03, 0.01, 1, wait=True)
+
+        toc(15)
+    #
         if ati_ip is not None:
             data_logger.ati_sensor.stop_streaming()
         data_logger.stop_logging()
-
+    #
     except Exception as e:
         print(f"An error occurred: {e}")

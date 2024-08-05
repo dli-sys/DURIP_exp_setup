@@ -7,6 +7,8 @@ import datetime
 import socket
 import ctypes
 import numpy
+from numpy import pi
+import matplotlib.pyplot as plt
 
 # Import your existing files
 from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
@@ -17,7 +19,6 @@ class DataLogger:
     def __init__(self, robot_ip=None, ati_ip=None):
         self.use_robot = robot_ip is not None
         self.use_ati = ati_ip is not None
-
 
         if not self.use_robot and not self.use_ati:
             raise ValueError("At least one data source (robot or ATI sensor) must be specified.")
@@ -48,7 +49,6 @@ class DataLogger:
         self.stop_event = threading.Event()
         self.index = 0
         self.initial_timestamp = time.time()
-
         # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
@@ -64,12 +64,11 @@ class DataLogger:
             desire_pose.pos[:]+=moving_vector_down
             self.robot.movel(desire_pose, acc=0.01, vel=0.5 / 1000, wait=True)
             calib_data_list = 0
-            for j in range(3500):
+            for j in range(7000):
                 calib_data_list += self.load_cell_data[-1][7]
                 # print(self.load_cell_data)
             calib_data_z= abs(calib_data_list/3500)
             print(f"Current z reading: {calib_data_z}")
-
 
     def robot_pose_calibration(self):
         pass
@@ -172,23 +171,46 @@ if __name__ == '__main__':
         moving_vector_backward = numpy.array((0, -1, 0))
         moving_vector_up = numpy.array((0, 0, 1))
         moving_vector_down = numpy.array((0, 0, -1))
-        tcp = ((0, 0, 0.30, 0, 0, 0))
-        payload_m = 0.1
-        payload_location = (0, 0, 0.15)
+        # tcp = ((0, 0, 0.30, 0, 0, 0))
+        # payload_m = 0.1
+        # payload_location = (0, 0, 0.15)
+        # ur16.set_tcp(tcp)
+        # ur16.set_payload(payload_m, payload_location)
+        print(ur16.get_pos())
+        print(ur16.getj())
 
-        ur16.set_tcp(tcp)
-        ur16.set_payload(payload_m, payload_location)
+        # move to prepare pose that you can move the box 0731 (initial pose)
+        moving_box_joints = [-2.9723802248584192, -1.6063462696471156, -1.315368413925171, -1.7913500271239222, 1.5745007991790771, -30*pi/180]
 
 
-        #
-        # ## Do something over here for your exp
-        # move_ur(ur16,moving_vector_up*0.03,0.01,1,wait=True)
+        data_logger.robot.movej(moving_box_joints,vel=5/1000,acc=0.5,wait = True)
+        move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
+
+        data_logger.force_controlled_intrusion(intrusion_threshold=1.8)
+        move_ur(ur16, moving_vector_down * 18/1000, 0.5/1000, 1, wait=True)
+
+        # rotate_around z
+        print("Start rotating")
+        rotate_around_h(ur16,(0,0,(-179)*pi/180))
+        time.sleep(3)
+        rotate_around_h(ur16, (0, 0, (179)*pi/180))
+        time.sleep(3)
+
+        data_logger.robot.movej(moving_box_joints, vel=5 / 1000, acc=0.5, wait=True)
 
         time.sleep(3)
 
         if ati_ip is not None:
             data_logger.ati_sensor.stop_streaming()
         data_logger.stop_logging()
+
+        robot_angle = numpy.array(data_logger.robot_data)[:,-2]
+        z_torque = numpy.array(data_logger.load_cell_data)[:,-1]
+        robot_timestamp = numpy.array(data_logger.robot_data)[:,0]
+        loadcell_timestamp = numpy.array(data_logger.load_cell_data)[:,0]
+        plt.plot(robot_timestamp,robot_angle)
+        plt.plot(loadcell_timestamp,z_torque)
+        plt.show(block=True)
 
     except Exception as e:
         print(f"An error occurred: {e}")

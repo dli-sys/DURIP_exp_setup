@@ -29,7 +29,7 @@ def move_ur(ur,moving_vector,v,a,wait=False):
     ur.movel(current_pose,vel=v,acc=a,wait=wait)
 
 
-def rotate_around_h(angle_r):
+def rotate_around_h(ur,angle_r):
     # you must set the TCP correctly
     # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
     # if rotate around the base flange, set tcp as zeros
