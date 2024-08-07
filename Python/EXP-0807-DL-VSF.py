@@ -17,9 +17,11 @@ from control_ur_robot import move_ur,rotate_around_h
 
 class DataLogger:
     def __init__(self, robot_ip=None, ati_ip=None):
+        self.combined_data = None
         self.use_robot = robot_ip is not None
         self.use_ati = ati_ip is not None
-
+        self.UR_header = ["Timestamp", "Index","X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
+        self.FT_header = ["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz"]
         if not self.use_robot and not self.use_ati:
             raise ValueError("At least one data source (robot or ATI sensor) must be specified.")
 
@@ -28,7 +30,7 @@ class DataLogger:
             try:
                 self.robot = urx.Robot(robot_ip, use_rt=True, urFirm=5.9)
                 self.robot_data = []
-                time.sleep(5)
+                time.sleep(3)
                 self.initial_pose = self.robot.get_pos()
             except urx.urrobot.RobotException as e:
                 print(f"Error connecting to robot: {e}")
@@ -110,7 +112,7 @@ class DataLogger:
                 print("Load cell communication timeout. Exiting.")
                 self.stop_logging()
                 break
-            # time.sleep(0.00001)
+            time.sleep(0.00000001)
 
     def save_data(self):
         data_folder = "data"
@@ -124,7 +126,7 @@ class DataLogger:
             robot_filename = os.path.join(data_folder, f"{timestamp_str}_UR.csv")
             with open(robot_filename, 'w', newline='') as robot_file:
                 robot_writer = csv.writer(robot_file)
-                robot_writer.writerow(["Timestamp", "Index","X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"])
+                robot_writer.writerow(self.UR_header)
                 robot_writer.writerows(self.robot_data)
                 print(f"Data saved to {robot_filename} ")
 
@@ -132,15 +134,64 @@ class DataLogger:
             load_cell_filename = os.path.join(data_folder, f"{timestamp_str}_FT.csv")
             with open(load_cell_filename, 'w', newline='') as load_cell_file:
                 load_cell_writer = csv.writer(load_cell_file)
-                load_cell_writer.writerow(["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz"])
+                load_cell_writer.writerow(self.FT_header)
                 load_cell_writer.writerows(self.load_cell_data)
                 print(f"Data saved to {load_cell_filename} ")
+
+        if self.use_robot and self.use_ati:
+            robot_data = numpy.array(self.robot_data)
+            load_cell_data = numpy.array(self.load_cell_data)
+
+            ur_last_timestamp = robot_data[-1, 0]
+            ft_last_timestamp = load_cell_data[-1, 0]
+            if ur_last_timestamp < ft_last_timestamp:
+                end_timestamp = ur_last_timestamp  # Use UR timestamp to limit FT data
+                print("Warning: UR data ended before FT data. Combined data will be truncated.")
+            else:
+                end_timestamp = ft_last_timestamp  # Use FT timestamp to limit UR data
+                print("Warning: FT data ended before UR data. Combined data will be truncated.")
+            robot_data = robot_data[robot_data[:, 0] <= end_timestamp]
+            load_cell_data = load_cell_data[load_cell_data[:, 0] <= end_timestamp]
+
+
+            ati_sampling_rate = len(load_cell_data) / abs(load_cell_data[-1,0]-load_cell_data[0,0])
+            flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
+            # Interpolate UR data to match flattened timestamps (assuming 100 Hz)
+            ur_timestamps = robot_data[:, 0]
+            ur_values = robot_data[:, 2:]  # X, Y, Z, Rx, Ry, Rz, isRunning
+            if not (ur_timestamps[0] <= flattened_timestamps[0] and ur_timestamps[-1] >= flattened_timestamps[-1]):
+                print("Warning: UR timestamps fall outside the range of FT timestamps. Interpolation may be inaccurate.")
+            interpolated_ur_values = numpy.zeros((len(flattened_timestamps), ur_values.shape[1]))
+            for i in range(ur_values.shape[1]):  # Interpolate each column
+                interpolated_ur_values[:, i] = numpy.interp(flattened_timestamps, ur_timestamps, ur_values[:, i])
+
+            # Combine and save data
+            # self.combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
+            combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
+            combined_filename = os.path.join(data_folder, f"{timestamp_str}_COMBO.csv")
+            with open(combined_filename, 'w', newline='') as combined_file:
+                combined_writer = csv.writer(combined_file)
+                combined_writer.writerow(["Timestamp"] + self.UR_header[2:] + self.FT_header[2:])
+                combined_writer.writerows(self.combined_data)
+            print(f"Combined data saved to {combined_filename}")
+
+            fig, (ax_x, ax_y) = plt.subplots(1, 2)
+            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 11])
+            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 12])
+            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 13])
+            ax_x.set_xlabel("X - Distance (mm)")
+            ax_x.set_ylabel("Force (N)")
+            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 11])
+            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 12])
+            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 13])
+            ax_y.set_xlabel("Y - Distance (mm)")
+            ax_y.set_ylabel("Force (N)")
+            plt.show(block=True)
 
 
     def stop_logging(self):
         self.stop_event.set()
         time.sleep(1)  # Allow time for threads to stop gracefully
-
         for thread in threading.enumerate():
             if thread.name != "MainThread":
                 thread_id = thread.ident
@@ -148,19 +199,16 @@ class DataLogger:
                 if res > 1:
                     ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
                     print('Exception raise failure')
-        self.save_data()
+        if ati_ip is not None:
+            data_logger.ati_sensor.stop_streaming()
 
 
 if __name__ == '__main__':
-
-
     try:
 
         ati_ip = "192.168.0.121"
         robot_ip = "192.168.0.110"
         data_logger = DataLogger(ati_ip=ati_ip,robot_ip=robot_ip)
-        # robot_ip = "192.168.0.110"
-        # data_logger = DataLogger(robot_ip=args.robot_ip, ati_ip=args.ati_ip)
 
         # Robot moving loop
         # To access the robot, one can use
@@ -178,15 +226,25 @@ if __name__ == '__main__':
         # payload_location = (0, 0, 0.15)
         # ur16.set_tcp(tcp)
         # ur16.set_payload(payload_m, payload_location)
-        print(ur16.get_pos())
-        print(ur16.getj())
+        print(f"Current robot location: {ur16.get_pos()}")
+        print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
 
+        prepare_pose = [-1.717706028615133, -1.8794928989806117, -1.6501024961471558, -1.1833744806102295, 1.5736362934112549, -1.606333080922262]
 
-        # move to prepare pose that you can move the box 0731 (initial pose)
-        moving_box_joints = [-1.717706028615133, -1.8794928989806117, -1.6501024961471558, -1.1833744806102295, 1.5736362934112549, -1.606333080922262]
+        while True:
+            user_input = input("Use current robot position as starting point? (Y/N): ").strip().upper()
+            if user_input == 'Y':
+                exp_pose = ur16.getj()  # Update if user says yes
+                break
+            elif user_input == 'N':
+                exp_pose = prepare_pose
+                data_logger.robot.movej(exp_pose, vel=10 / 1000, acc=0.5, wait=True)
+                break
+            else:
+                print("Invalid input. Please enter Y or N.")
 
-        data_logger.robot.movej(moving_box_joints,vel=10/1000,acc=0.5,wait = True)
         # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
+
         # start recording
         data_logger.start_recording()
 
@@ -194,36 +252,22 @@ if __name__ == '__main__':
         move_ur(ur16, moving_vector_down * 60/1000, 3/1000, 1, wait=True)
 
         # rotate_around z
-        print("Start rotating")
+        print("Start dragging")
         # rotate_around_h(ur16,(0,0,(-179)*pi/180))
-        jj = 0
-        while jj < 3:
 
+        for jj in range(3):
+            print(f"Dragging round #{jj+1}")
             move_ur(ur16, moving_vector_right * 100 / 1000, 3 / 1000, 1, wait=True)
             time.sleep(1)
             move_ur(ur16, moving_vector_left * 100 / 1000, 3 / 1000, 1, wait=True)
             time.sleep(1)
-            jj+=1
-            # print(jj)
-        # print(jj)
 
         time.sleep(3)
+        data_logger.save_data()
 
-        if ati_ip is not None:
-            data_logger.ati_sensor.stop_streaming()
+        data_logger.robot.movej(exp_pose, vel=3 / 1000, acc=0.5, wait=True)
         data_logger.stop_logging()
 
-        data_logger.robot.movej(moving_box_joints, vel=3 / 1000, acc=0.5, wait=True)
-
-
-
-        # robot_angle = numpy.array(data_logger.robot_data)[:,-2]
-        # z_torque = numpy.array(data_logger.load_cell_data)[:,-1]
-        # robot_timestamp = numpy.array(data_logger.robot_data)[:,0]
-        # loadcell_timestamp = numpy.array(data_logger.load_cell_data)[:,0]
-        # plt.plot(robot_timestamp,robot_angle)
-        # plt.plot(loadcell_timestamp,z_torque)
-        # plt.show(block=True)
 
     except Exception as e:
         print(f"An error occurred: {e}")

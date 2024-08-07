@@ -20,9 +20,19 @@ class atiSensor:
             self.s.connect((self.tcp_ip, self.port))
             print("Sensor connected")
             self.start_streaming()
-            self._calibrate()8
+            self._calibrate()
         except socket.timeout:
             raise ConnectionError(f"Could not connect to the sensor at {self.tcp_ip}.")
+
+    def start_streaming_old(self):
+        """
+        Send the command to start high-speed real-time streaming.
+        """
+        header = 0x1234
+        command = 0x0002  # Command for high-speed real-time streaming
+        sample_count = 0  # Infinite samples
+        message = struct.pack('>HHI', header, command, sample_count)
+        self.s.send(message)
 
     def start_streaming(self):
         """
