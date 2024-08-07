@@ -20,7 +20,7 @@ class atiSensor:
             self.s.connect((self.tcp_ip, self.port))
             print("Sensor connected")
             self.start_streaming()
-            self._calibrate()
+            self._calibrate()8
         except socket.timeout:
             raise ConnectionError(f"Could not connect to the sensor at {self.tcp_ip}.")
 
