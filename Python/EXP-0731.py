@@ -180,8 +180,8 @@ if __name__ == '__main__':
         print(ur16.getj())
 
         # move to prepare pose that you can move the box 0731 (initial pose)
-        moving_box_joints = [-2.9723802248584192, -1.6063462696471156, -1.315368413925171, -1.7913500271239222, 1.5745007991790771, -30*pi/180]
-
+        moving_box_joints = [-1.6229055563556116, -1.699686666528219, -1.6805740594863892, -1.332057149415352, 1.5741560459136963, 0.7854251861572266]
+        fluidize_pos = [-1.6223414579974573, -1.7362929783263148, -1.0144156217575073, -1.962337156335348, 1.574385643005371, 0.7854251861572266]
 
         data_logger.robot.movej(moving_box_joints,vel=5/1000,acc=0.5,wait = True)
         move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
@@ -191,9 +191,9 @@ if __name__ == '__main__':
 
         # rotate_around z
         print("Start rotating")
-        rotate_around_h(ur16,(0,0,(-179)*pi/180))
+        rotate_around_h(ur16,(0,0,(179.99)*pi/180))
         time.sleep(3)
-        rotate_around_h(ur16, (0, 0, (179)*pi/180))
+        rotate_around_h(ur16, (0, 0, (-179.99)*pi/180))
         time.sleep(3)
 
         data_logger.robot.movej(moving_box_joints, vel=5 / 1000, acc=0.5, wait=True)
@@ -211,6 +211,8 @@ if __name__ == '__main__':
         plt.plot(robot_timestamp,robot_angle)
         plt.plot(loadcell_timestamp,z_torque)
         plt.show(block=True)
+
+        data_logger.robot.movej(fluidize_pos, vel=20 / 1000, acc=0.5, wait=True)
 
     except Exception as e:
         print(f"An error occurred: {e}")
