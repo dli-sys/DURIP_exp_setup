@@ -1,4 +1,5 @@
 # HKJF
+
 import urx
 import threading
 import time
@@ -97,7 +98,7 @@ class DataLogger:
                 self.stop_logging()
                 break
             finally:
-                time.sleep(0.005)  # Adjust sleep interval if needed
+                time.sleep(0.00000001)  # Adjust sleep interval if needed
 
     def log_load_cell_data(self):
         while not self.stop_event.is_set():
@@ -112,97 +113,102 @@ class DataLogger:
                 break
             time.sleep(0.00000001)
 
-    def save_data(self):
-        data_folder = "data"
-        os.makedirs(data_folder, exist_ok=True)
+    def save_data(self,append_exp_name=None):
+        try:
+            data_folder = "data"
+            os.makedirs(data_folder, exist_ok=True)
 
-        # Generate filename with current date and time
-        now = datetime.datetime.now()
-        timestamp_str = now.strftime("%Y_%m_%d_%H_%M")
+            # Generate filename with current date and time
+            now = datetime.datetime.now()
+            timestamp_str = now.strftime("%Y_%m_%d_%H_%M")
+            if append_exp_name:
+                timestamp_str += "_" + append_exp_name + "_"
 
-        if self.use_robot:
-            robot_filename = os.path.join(data_folder, f"{timestamp_str}_UR.csv")
-            with open(robot_filename, 'w', newline='') as robot_file:
-                robot_writer = csv.writer(robot_file)
-                robot_writer.writerow(self.UR_header)
-                robot_writer.writerows(self.robot_data)
-                print(f"Data saved to {robot_filename} ")
+            if self.use_robot:
+                robot_filename = os.path.join(data_folder, f"{timestamp_str}_UR.csv")
+                with open(robot_filename, 'w', newline='') as robot_file:
+                    robot_writer = csv.writer(robot_file)
+                    robot_writer.writerow(self.UR_header)
+                    robot_writer.writerows(self.robot_data)
+                    print(f"Data saved to {robot_filename} ")
 
-        if self.use_ati:
-            load_cell_filename = os.path.join(data_folder, f"{timestamp_str}_FT.csv")
-            with open(load_cell_filename, 'w', newline='') as load_cell_file:
-                load_cell_writer = csv.writer(load_cell_file)
-                load_cell_writer.writerow(self.FT_header)
-                load_cell_writer.writerows(self.load_cell_data)
-                print(f"Data saved to {load_cell_filename} ")
+            if self.use_ati:
+                load_cell_filename = os.path.join(data_folder, f"{timestamp_str}_FT.csv")
+                with open(load_cell_filename, 'w', newline='') as load_cell_file:
+                    load_cell_writer = csv.writer(load_cell_file)
+                    load_cell_writer.writerow(self.FT_header)
+                    load_cell_writer.writerows(self.load_cell_data)
+                    print(f"Data saved to {load_cell_filename} ")
 
-        if self.use_robot and self.use_ati:
-            robot_data = numpy.array(self.robot_data)
-            load_cell_data = numpy.array(self.load_cell_data)
+            if self.use_robot and self.use_ati:
+                robot_data = numpy.array(self.robot_data)
+                load_cell_data = numpy.array(self.load_cell_data)
 
-            ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
-            ati_flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
-            load_cell_data[:,0] = ati_flattened_timestamps
+                ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
+                ati_flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
+                load_cell_data[:,0] = ati_flattened_timestamps
 
-            ur_last_timestamp = robot_data[-1, 0]
-            ft_last_timestamp = load_cell_data[-1, 0]
-            if ur_last_timestamp < ft_last_timestamp:
-                end_timestamp = ur_last_timestamp  # Use UR timestamp to limit FT data
-                print("Warning: UR data ended before FT data. Combined data will be truncated.")
-            else:
-                end_timestamp = ft_last_timestamp  # Use FT timestamp to limit UR data
-                print("Warning: FT data ended before UR data. Combined data will be truncated.")
-            robot_data = robot_data[robot_data[:, 0] <= end_timestamp]
-            load_cell_data = load_cell_data[load_cell_data[:, 0] <= end_timestamp]
+                ur_last_timestamp = robot_data[-1, 0]
+                ft_last_timestamp = load_cell_data[-1, 0]
+                if ur_last_timestamp < ft_last_timestamp:
+                    end_timestamp = ur_last_timestamp  # Use UR timestamp to limit FT data
+                    print("Warning: UR data ended before FT data. ")
+                else:
+                    end_timestamp = ft_last_timestamp  # Use FT timestamp to limit UR data
+                    print("Warning: FT data ended before UR data. ")
+                robot_data = robot_data[robot_data[:, 0] <= end_timestamp]
+                load_cell_data = load_cell_data[load_cell_data[:, 0] <= end_timestamp]
 
-            ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
-            flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
+                ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
+                flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
 
-            # Interpolate UR data to match flattened timestamps (assuming 100 Hz)
-            ur_timestamps = robot_data[:, 0]
-            ur_values = robot_data[:, 2:]  # X, Y, Z, Rx, Ry, Rz, isRunning
-            if not (ur_timestamps[0] <= flattened_timestamps[0] and ur_timestamps[-1] >= flattened_timestamps[-1]):
-                print("Warning: UR timestamps fall outside the range of FT timestamps. Interpolation may be inaccurate.")
-            interpolated_ur_values = numpy.zeros((len(flattened_timestamps), ur_values.shape[1]))
-            for i in range(ur_values.shape[1]):  # Interpolate each column
-                interpolated_ur_values[:, i] = numpy.interp(flattened_timestamps, ur_timestamps, ur_values[:, i])
+                # Interpolate UR data to match flattened timestamps (assuming 100 Hz)
+                ur_timestamps = robot_data[:, 0]
+                ur_values = robot_data[:, 2:]  # X, Y, Z, Rx, Ry, Rz, isRunning
+                if not (ur_timestamps[0] <= flattened_timestamps[0] and ur_timestamps[-1] >= flattened_timestamps[-1]):
+                    print("Warning: UR timestamps fall outside the range of FT timestamps. Interpolation may be inaccurate.")
+                interpolated_ur_values = numpy.zeros((len(flattened_timestamps), ur_values.shape[1]))
+                for i in range(ur_values.shape[1]):  # Interpolate each column
+                    interpolated_ur_values[:, i] = numpy.interp(flattened_timestamps, ur_timestamps, ur_values[:, i])
 
-            # Combine and save data
-            self.combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
-            # combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
-            combined_filename = os.path.join(data_folder, f"{timestamp_str}_COMBO.csv")
-            with open(combined_filename, 'w', newline='') as combined_file:
-                combined_writer = csv.writer(combined_file)
-                combined_writer.writerow(["Timestamp"] + self.UR_header[2:] + self.FT_header[2:])
-                combined_writer.writerows(self.combined_data)
-            print(f"Combined data saved to {combined_filename}")
+                # Combine and save data
+                self.combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
+                # combined_data = numpy.column_stack((flattened_timestamps, interpolated_ur_values, load_cell_data[:, 2:]))
+                combined_filename = os.path.join(data_folder, f"{timestamp_str}_COMBO.csv")
+                with open(combined_filename, 'w', newline='') as combined_file:
+                    combined_writer = csv.writer(combined_file)
+                    combined_writer.writerow(["Timestamp"] + self.UR_header[2:] + self.FT_header[2:])
+                    combined_writer.writerows(self.combined_data)
+                print(f"Combined data saved to {combined_filename}")
 
-            fig, (ax_x, ax_y,tb_ur,tb_ft) = plt.subplots(2, 2)
-            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 11])
-            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 12])
-            ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 13])
-            ax_x.set_xlabel("X - Distance (mm)")
-            ax_x.set_ylabel("Force (N)")
+                fig, ([ax_x, ax_y],[tb_ur,tb_ft]) = plt.subplots(2, 2)
+                ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 11])
+                ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 12])
+                ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 13])
+                ax_x.set_xlabel("X - Distance (mm)")
+                ax_x.set_ylabel("Force (N)")
 
-            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 11])
-            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 12])
-            ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 13])
-            ax_y.set_xlabel("Y - Distance (mm)")
-            ax_y.set_ylabel("Force (N)")
+                ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 11])
+                ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 12])
+                ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 13])
+                ax_y.set_xlabel("Y - Distance (mm)")
+                ax_y.set_ylabel("Force (N)")
 
-            tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 1] * 1e3)
-            tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 2] * 1e3)
-            tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 3] * 1e3)
-            tb_ur.set_xlabel("Time (s)")
-            tb_ur.set_ylabel("X - Distance (mm)")
+                tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 1] * 1e3)
+                tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 2] * 1e3)
+                tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 3] * 1e3)
+                tb_ur.set_xlabel("Time (s)")
+                tb_ur.set_ylabel("X - Distance (mm)")
 
-            tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 11])
-            tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 12])
-            tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 23])
-            tb_ft.set_xlabel("Time (s)")
-            tb_ft.set_ylabel("Force (N)")
+                tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 11])
+                tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 12])
+                tb_ft.plot(self.combined_data[:, 0], self.combined_data[:, 13])
+                tb_ft.set_xlabel("Time (s)")
+                tb_ft.set_ylabel("Force (N)")
 
-            plt.show(block=True)
+                plt.show(block=True)
+        except:
+            pass
 
 
     def stop_logging(self):

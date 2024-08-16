@@ -46,10 +46,10 @@ if __name__ == '__main__':
         # ur16.set_tcp(tcp)
         # ur16.set_payload(payload_m, payload_location)
         print(f"Current robot location: {ur16.get_pos()}")
-        print(f"Current robot joint angle: {ur16.getj()} ")
         print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
 
-        prepare_pose = [-1.7903106848346155, -1.924272199670309, -1.8609415292739868, -0.9263626498034974, 1.5695431232452393, 0.5676261186599731]
+        prepare_pose = [-pi/2,-pi/2,-pi/2,-pi/2,pi/2,pi/2]
+
         while True:
             user_input = input("Use current robot position as starting point? (Y/N): ").strip().upper()
             if user_input == 'Y':
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         data_logger.force_controlled_intrusion(intrusion_threshold=0.5)
         move_ur(ur16, moving_vector_down * 60/1000, 3/1000, 1, wait=True)
 
-        # rotate_around z
+
         print("Start dragging")
         # rotate_around_h(ur16,(0,0,(-179)*pi/180))
         repeat_time = 5
@@ -83,6 +83,7 @@ if __name__ == '__main__':
             time.sleep(1)
 
         time.sleep(3)
+
 
         data_logger.save_data(append_exp_name=exp_prefix)
 
