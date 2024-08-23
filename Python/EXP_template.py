@@ -90,6 +90,11 @@ if __name__ == '__main__':
         data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
         data_logger.stop_logging()
 
+    except KeyboardInterrupt:
+        data_logger.save_data(append_exp_name=exp_prefix)
+        data_logger.stop_logging()
 
     except Exception as e:
+        data_logger.save_data(append_exp_name=exp_prefix)
+        data_logger.stop_logging()
         print(f"An error occurred: {e}")

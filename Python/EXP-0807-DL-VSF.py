@@ -91,9 +91,9 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         data_logger.save_data(append_exp_name=exp_prefix)
-        DataLogger.stop_logging()
+        data_logger.stop_logging()
 
     except Exception as e:
-        DataLogger.stop_logging()
+        data_logger.stop_logging()
         print(f"An error occurred: {e}")
 
