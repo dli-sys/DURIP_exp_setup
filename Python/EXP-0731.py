@@ -180,14 +180,27 @@ if __name__ == '__main__':
         print(ur16.getj())
 
         # move to prepare pose that you can move the box 0731 (initial pose)
-        moving_box_joints = [-1.6229055563556116, -1.699686666528219, -1.6805740594863892, -1.332057149415352, 1.5741560459136963, 0.7854251861572266]
-        fluidize_pos = [-1.6223414579974573, -1.7362929783263148, -1.0144156217575073, -1.962337156335348, 1.574385643005371, 0.7854251861572266]
+        # prepare_pose = [-1.5899317900287073, -1.8535644016661585, -1.9331345558166504, -0.926342324619629, 1.573030948638916, 0.7853751182556152]
+        prepare_pose = [-1.589989964162008, -1.8645616970457972, -1.9449468851089478, -0.9032913011363526, 1.5730645656585693, 0.7853822708129883]
 
-        data_logger.robot.movej(moving_box_joints,vel=5/1000,acc=0.5,wait = True)
-        move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
+
+        fluidize_pose = [-1.5892613569842737, -1.7400156460204066, -1.0752558708190918, -1.8977223835387171,
+                         1.5743772983551025, 0.7854096293449402]
+
+        # current_pos = ur16.getj()
+        # if current_pos != fluidize_pose:
+        #     print("Move to fluidize pose")
+        #     data_logger.robot.movej(fluidize_pose, vel=50 / 1000, acc=0.5, wait=True)
+
+        data_logger.robot.movej(prepare_pose,vel=60/1000,acc=0.5,wait = True)
+
+        # Start penetration
+        # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
 
         data_logger.force_controlled_intrusion(intrusion_threshold=1.8)
-        move_ur(ur16, moving_vector_down * 18/1000, 0.5/1000, 1, wait=True)
+        print("Hit the ground. Start penetration 35mm")
+        # Move 35mm down
+        # move_ur(ur16, moving_vector_down * 35/1000, 0.5/1000, 1, wait=True)
 
         # rotate_around z
         print("Start rotating")
@@ -196,23 +209,44 @@ if __name__ == '__main__':
         rotate_around_h(ur16, (0, 0, (-179.99)*pi/180))
         time.sleep(3)
 
-        data_logger.robot.movej(moving_box_joints, vel=5 / 1000, acc=0.5, wait=True)
-
-        time.sleep(3)
+        data_logger.robot.movej(fluidize_pose, vel=50 / 1000, acc=0.5, wait=True)
 
         if ati_ip is not None:
             data_logger.ati_sensor.stop_streaming()
         data_logger.stop_logging()
 
+
+
+
+
+
+
         robot_angle = numpy.array(data_logger.robot_data)[:,-2]
         z_torque = numpy.array(data_logger.load_cell_data)[:,-1]
+        Fx = numpy.array(data_logger.load_cell_data)[:,5]
+        Fy = numpy.array(data_logger.load_cell_data)[:,6]
         robot_timestamp = numpy.array(data_logger.robot_data)[:,0]
         loadcell_timestamp = numpy.array(data_logger.load_cell_data)[:,0]
+
+        robot_angle_interp = numpy.interp(loadcell_timestamp, robot_timestamp ,robot_angle)
+
+        plt.figure(1)
         plt.plot(robot_timestamp,robot_angle)
-        plt.plot(loadcell_timestamp,z_torque)
+        plt.plot(loadcell_timestamp,Fx, label="Fx")
+        plt.plot(loadcell_timestamp, Fy, label="Fy")
+        plt.legend()
+
+        plt.figure(2)
+        plt.plot(robot_angle_interp, Fx, label="Fx")
+        plt.plot(robot_angle_interp, Fy, label="Fy")
+        plt.legend()
+
+
         plt.show(block=True)
 
-        data_logger.robot.movej(fluidize_pos, vel=20 / 1000, acc=0.5, wait=True)
+
+
+        # data_logger.robot.movej(fluidize_pose, vel=20 / 1000, acc=0.5, wait=True)
 
     except Exception as e:
         print(f"An error occurred: {e}")

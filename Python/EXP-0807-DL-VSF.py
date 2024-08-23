@@ -73,8 +73,8 @@ if __name__ == '__main__':
         # rotate_around z
         print("Start dragging")
         # rotate_around_h(ur16,(0,0,(-179)*pi/180))
-        repeat_time = 5
-        test_vel  = 5/1000
+        repeat_time = 1
+        test_vel  = 10/1000
         for jj in range(repeat_time):
             print(f"Dragging round #{jj+1}/{repeat_time}")
             move_ur(ur16, moving_vector_right * 100 / 1000, test_vel, 1, wait=True)
@@ -89,6 +89,11 @@ if __name__ == '__main__':
         data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
         data_logger.stop_logging()
 
+    except KeyboardInterrupt:
+        data_logger.save_data(append_exp_name=exp_prefix)
+        DataLogger.stop_logging()
 
     except Exception as e:
+        DataLogger.stop_logging()
         print(f"An error occurred: {e}")
+

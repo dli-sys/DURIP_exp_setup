@@ -51,7 +51,12 @@ class DataLogger:
         self.index = 0
         self.initial_timestamp = time.time()
 
+    def flush(self):
+        self.load_cell_data = []
+        self.robot_data = []
+
     def start_recording(self):
+        time.sleep(8)
         # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
@@ -221,5 +226,6 @@ class DataLogger:
                 if res > 1:
                     ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
                     print('Exception raise failure')
-        if self.ati_ip is not None:
+        if self.ati_sensor is not None:
             self.ati_sensor.stop_streaming()
+            self.robot.close()
