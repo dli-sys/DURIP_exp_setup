@@ -22,13 +22,14 @@ def Init_ur(ur_port):
 
     return ur
 
+
 def move_ur(ur,moving_vector,v,a,wait=False):
     current_pose = ur.get_pose()
     current_pose.pos[:] += moving_vector
     ur.movel(current_pose,vel=v,acc=a,wait=wait)
 
 
-def rotate_around_h(angle_r):
+def rotate_around_h(ur,angle_r):
     # you must set the TCP correctly
     # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
     # if rotate around the base flange, set tcp as zeros
@@ -49,55 +50,58 @@ def rotate_around_h(angle_r):
 # Define moving vector according to the table frames
 # unit is M
 
-moving_vector_left = numpy.array((-1,0,0))
-moving_vector_right = numpy.array((1,0,0))
-moving_vector_forward = numpy.array((0,1,0))
-moving_vector_backward = numpy.array((0,-1,0))
-moving_vector_up = numpy.array((0,0,1))
-moving_vector_down = numpy.array((0,0,-1))
-    
-# Define the robot
-ur_port = "192.168.0.110"
-ur = urx.Robot(ur_port,use_rt=True,urFirm=5.9)
-time.sleep(5)
 
-# Define the TCP and Payload
-tcp = ((0,0,0.30,0,0,0))
-payload_m = 0.1
-payload_location = (0,0,0.15)
+if __name__ == "__main__":
 
-ur.set_tcp(tcp)
-ur.set_payload(payload_m, payload_location)
+    moving_vector_left = numpy.array((-1,0,0))
+    moving_vector_right = numpy.array((1,0,0))
+    moving_vector_forward = numpy.array((0,1,0))
+    moving_vector_backward = numpy.array((0,-1,0))
+    moving_vector_up = numpy.array((0,0,1))
+    moving_vector_down = numpy.array((0,0,-1))
 
-depth = 10/1000
-push_distance = 20/1000
+    # Define the robot
+    ur_port = "192.168.0.110"
+    ur = urx.Robot(ur_port,use_rt=True,urFirm=5.9)
+    time.sleep(5)
 
-# test moving
-move_ur(ur,moving_vector_down*depth,0.01,1,wait=True)
-move_ur(ur,moving_vector_left*push_distance,0.01,1,wait=True)
-move_ur(ur,moving_vector_up*depth,0.01,1,wait=True)
-move_ur(ur,moving_vector_right*push_distance,0.01,1,wait=True)
+    # Define the TCP and Payload
+    tcp = ((0,0,0.30,0,0,0))
+    payload_m = 0.1
+    payload_location = (0,0,0.15)
 
+    ur.set_tcp(tcp)
+    ur.set_payload(payload_m, payload_location)
 
-# Test get some data
-print(ur.get_pose())
-print(ur.get_pos())
-print(ur.getj())
+    depth = 10/1000
+    push_distance = 20/1000
+
+    # test moving
+    move_ur(ur,moving_vector_down*depth,0.01,1,wait=True)
+    move_ur(ur,moving_vector_left*push_distance,0.01,1,wait=True)
+    move_ur(ur,moving_vector_up*depth,0.01,1,wait=True)
+    move_ur(ur,moving_vector_right*push_distance,0.01,1,wait=True)
 
 
-# Test collect some data
-time_a = time.time()
-move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
-initial_pose = ur.get_pos()[:]
-pos_time = numpy.append(time.time()-time_a,initial_pose)
+    # Test get some data
+    print(ur.get_pose())
+    print(ur.get_pos())
+    print(ur.getj())
 
-try:
-    while True:
-        time_b = time.time()-time_a
-        position_data = ur.get_pos()[:]-initial_pose
-        current_data= numpy.append(time_b,position_data)
-except KeyboardInterrupt:
-    move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
-    plt.plot(current_data)
+
+    # Test collect some data
+    time_a = time.time()
+    move_ur(ur,moving_vector_up*depth,0.01,1,wait=False)
+    initial_pose = ur.get_pos()[:]
+    pos_time = numpy.append(time.time()-time_a,initial_pose)
+
+    try:
+        while True:
+            time_b = time.time()-time_a
+            position_data = ur.get_pos()[:]-initial_pose
+            current_data= numpy.append(time_b,position_data)
+    except KeyboardInterrupt:
+        move_ur(ur,moving_vector_down*-depth,5e-3,0.1,wait=False)
+        plt.plot(current_data)
 
 

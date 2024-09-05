@@ -24,6 +24,16 @@ class atiSensor:
         except socket.timeout:
             raise ConnectionError(f"Could not connect to the sensor at {self.tcp_ip}.")
 
+    def start_streaming_old(self):
+        """
+        Send the command to start high-speed real-time streaming.
+        """
+        header = 0x1234
+        command = 0x0002  # Command for high-speed real-time streaming
+        sample_count = 0  # Infinite samples
+        message = struct.pack('>HHI', header, command, sample_count)
+        self.s.send(message)
+
     def start_streaming(self):
         """
         Send the command to start high-speed real-time streaming.
@@ -67,7 +77,7 @@ class atiSensor:
 if __name__ == '__main__':
     ati_sensor = atiSensor(tcp_ip="192.168.0.121")  # Replace with actual sensor IP
     try:
-        num_samples = 35000  # Specify the number of samples to collect
+        num_samples = 7000  # Specify the number of samples to collect
         data_array = numpy.zeros((num_samples, 9))  # 9 data points per sample
         timestamps = numpy.zeros(num_samples)
 
