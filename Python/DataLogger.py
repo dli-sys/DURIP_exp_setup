@@ -56,26 +56,30 @@ class DataLogger:
         self.robot_data = []
 
     def start_recording(self):
-        time.sleep(8)
         # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
         if self.use_ati:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
+        time.sleep(8)
 
 
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
+        print("Start force controlled intrusion")
         moving_vector_down = numpy.array((0, 0, -1*step))
         calib_data_z = 0
         while calib_data_z < intrusion_threshold:
+            time.sleep(0.1)
             desire_pose = self.robot.get_pose()
             desire_pose.pos[:]+=moving_vector_down
-            self.robot.movel(desire_pose, acc=0.01, vel=0.5 / 1000, wait=True)
-            calib_data_list = 0
-            for j in range(7000):
-                calib_data_list += self.load_cell_data[-1][7]
-                # print(self.load_cell_data)
-            calib_data_z= abs(calib_data_list/3500)
+            self.robot.movel(desire_pose, acc=1, vel=1 / 1000, wait=True)
+            # calib_data_list = 0
+            # for j in range(7000):
+            #     calib_data_list += self.load_cell_data[-1][7]
+            print(self.load_cell_data[-1])
+            # calib_data_z= abs(calib_data_list/7000)
+            calib_data_z = abs(self.load_cell_data[-1][7])
+            time.sleep(0.1)
             print(f"Current z reading: {calib_data_z}")
 
     def robot_pose_calibration(self):
@@ -120,6 +124,10 @@ class DataLogger:
 
     def save_data(self,append_exp_name=None):
         try:
+
+            robot_data = numpy.array(self.robot_data)
+            load_cell_data = numpy.array(self.load_cell_data)
+
             data_folder = "data"
             os.makedirs(data_folder, exist_ok=True)
 
@@ -134,7 +142,7 @@ class DataLogger:
                 with open(robot_filename, 'w', newline='') as robot_file:
                     robot_writer = csv.writer(robot_file)
                     robot_writer.writerow(self.UR_header)
-                    robot_writer.writerows(self.robot_data)
+                    robot_writer.writerows(robot_data)
                     print(f"Data saved to {robot_filename} ")
 
             if self.use_ati:
@@ -142,12 +150,12 @@ class DataLogger:
                 with open(load_cell_filename, 'w', newline='') as load_cell_file:
                     load_cell_writer = csv.writer(load_cell_file)
                     load_cell_writer.writerow(self.FT_header)
-                    load_cell_writer.writerows(self.load_cell_data)
+                    load_cell_writer.writerows(load_cell_data)
                     print(f"Data saved to {load_cell_filename} ")
 
             if self.use_robot and self.use_ati:
-                robot_data = numpy.array(self.robot_data)
-                load_cell_data = numpy.array(self.load_cell_data)
+                # robot_data = numpy.array(self.robot_data)
+                # load_cell_data = numpy.array(self.load_cell_data)
 
                 ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
                 ati_flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
@@ -186,7 +194,7 @@ class DataLogger:
                     combined_writer.writerows(self.combined_data)
                 print(f"Combined data saved to {combined_filename}")
 
-                fig, ([ax_x, ax_y],[tb_ur,tb_ft]) = plt.subplots(2, 2)
+                fig, ([ax_x, ax_y,ax_z],[tb_ur,tb_ft,tb_angle]) = plt.subplots(2, 3)
                 ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 11])
                 ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 12])
                 ax_x.plot(self.combined_data[:, 1] * 1e3, self.combined_data[:, 13])
@@ -198,6 +206,12 @@ class DataLogger:
                 ax_y.plot(self.combined_data[:, 2] * 1e3, self.combined_data[:, 13])
                 ax_y.set_xlabel("Y - Distance (mm)")
                 ax_y.set_ylabel("Force (N)")
+
+                ax_z.plot(self.combined_data[:, 3] * 1e3, self.combined_data[:, 11])
+                ax_z.plot(self.combined_data[:, 3] * 1e3, self.combined_data[:, 12])
+                ax_z.plot(self.combined_data[:, 3] * 1e3, self.combined_data[:, 13])
+                ax_z.set_xlabel("Z - Distance (mm)")
+                ax_z.set_ylabel("Force (N)")
 
                 tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 1] * 1e3)
                 tb_ur.plot(self.combined_data[:, 0], self.combined_data[:, 2] * 1e3)
@@ -211,10 +225,15 @@ class DataLogger:
                 tb_ft.set_xlabel("Time (s)")
                 tb_ft.set_ylabel("Force (N)")
 
-                plt.show(block=True)
-        except:
-            pass
+                tb_angle.plot(self.combined_data[:, 0], numpy.rad2deg(self.combined_data[:, 4]))
+                tb_angle.plot(self.combined_data[:, 0], numpy.rad2deg(self.combined_data[:, 5]))
+                tb_angle.plot(self.combined_data[:, 0], numpy.rad2deg(self.combined_data[:, 6]))
+                tb_angle.set_xlabel("Time (s)")
+                tb_angle.set_ylabel("Force (N)")
 
+                plt.show(block=True)
+        except Exception as e:
+            print(f"An error occurred during plotting: {e}")
 
     def stop_logging(self):
         self.stop_event.set()

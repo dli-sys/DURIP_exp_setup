@@ -192,13 +192,13 @@ if __name__ == '__main__':
         #     print("Move to fluidize pose")
         #     data_logger.robot.movej(fluidize_pose, vel=50 / 1000, acc=0.5, wait=True)
 
-        data_logger.robot.movej(prepare_pose,vel=60/1000,acc=0.5,wait = True)
+        # data_logger.robot.movej(prepare_pose,vel=60/1000,acc=0.5,wait = True)
 
         # Start penetration
         # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
 
-        data_logger.force_controlled_intrusion(intrusion_threshold=1.8)
-        print("Hit the ground. Start penetration 35mm")
+        # data_logger.force_controlled_intrusion(intrusion_threshold=1.8)
+        # print("Hit the ground. Start penetration 35mm")
         # Move 35mm down
         # move_ur(ur16, moving_vector_down * 35/1000, 0.5/1000, 1, wait=True)
 

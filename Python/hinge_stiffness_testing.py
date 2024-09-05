@@ -46,10 +46,11 @@ if __name__ == '__main__':
         # ur16.set_tcp(tcp)
         # ur16.set_payload(payload_m, payload_location)
         print(f"Current robot location: {ur16.get_pos()}")
-        print(f"Current robot joint angle: {ur16.getj()} ")
         print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
+        print(f"Current robot joint angle: {(ur16.getj())} ")
 
-        prepare_pose = [-1.7903106848346155, -1.924272199670309, -1.8609415292739868, -0.9263626498034974, 1.5695431232452393, 0.5676261186599731]
+        prepare_pose = [-2.7815678755389612, -2.0551339588561, -1.7327262163162231, -0.925010160808899, 1.5729269981384277, -1.2371404806720179]
+
         while True:
             user_input = input("Use current robot position as starting point? (Y/N): ").strip().upper()
             if user_input == 'Y':
@@ -60,43 +61,43 @@ if __name__ == '__main__':
                 data_logger.robot.movej(exp_pose, vel=10 / 1000, acc=0.5, wait=True)
                 break
             else:
+
                 print("Invalid input. Please enter Y or N.")
 
         # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
-
-        # start recording
         data_logger.flush()
         # start recording
         data_logger.start_recording()
         time.sleep(5)
-        # data_logger.force_controlled_intrusion(intrusion_threshold=0.8)
-        # time.sleep(2)
-        move_ur(ur16, moving_vector_down * 60/1000, 3/1000, 1, wait=True)
+        data_logger.force_controlled_intrusion(intrusion_threshold=0.8)
+        time.sleep(2)
 
-        # rotate_around z
-        print("Start dragging")
-        # rotate_around_h(ur16,(0,0,(-179)*pi/180))
-        repeat_time = 1
-        test_vel = 10/1000
-        for jj in range(repeat_time):
-            print(f"Dragging round #{jj+1}/{repeat_time}")
-            move_ur(ur16, moving_vector_right * 100 / 1000, test_vel, 1, wait=True)
-            time.sleep(1)
-            # move_ur(ur16, moving_vector_left * 100 / 1000, test_vel, 1, wait=True)
-            # time.sleep(1)
+        move_ur(ur16, moving_vector_down * 10/1000, 10/1000, 1, wait=True)
+        time.sleep(5)
+        move_ur(ur16, moving_vector_up * 10 / 1000, 10/ 1000, 1, wait=True)
+        time.sleep(5)
+        # print("Start dragging")
+        # # rotate_around_h(ur16,(0,0,(-179)*pi/180))
+        # repeat_time = 1
+        test_vel  = 5/1000
+        # for jj in range(repeat_time):
+        #     print(f"Dragging round #{jj+1}/{repeat_time}")
+        #     move_ur(ur16, moving_vector_right * 100 / 1000, test_vel, 1, wait=True)
+        #     time.sleep(1)
+        #     move_ur(ur16, moving_vector_left * 100 / 1000, test_vel, 1, wait=True)
+        #     time.sleep(1)
 
-        time.sleep(3)
-        data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
+
         data_logger.save_data(append_exp_name=exp_prefix)
 
-
-        # data_logger.stop_logging()
+        data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
+        data_logger.stop_logging()
 
     except KeyboardInterrupt:
         data_logger.save_data(append_exp_name=exp_prefix)
         data_logger.stop_logging()
 
     except Exception as e:
+        data_logger.save_data(append_exp_name=exp_prefix)
         data_logger.stop_logging()
         print(f"An error occurred: {e}")
-

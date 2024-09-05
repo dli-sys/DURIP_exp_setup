@@ -90,9 +90,10 @@ if __name__ == '__main__':
         header_COMOBO,data_COMOBO = header_FT, data_FT
         COMBO_ts =  data_COMOBO[:,0]
         key1 = "X"
-        plt.plot(1e3*data_COMOBO[:,header_COMOBO[key1]],data_COMOBO[:,header_COMOBO["Fx"]])
-        plt.plot(1e3*data_COMOBO[:,header_COMOBO[key1]],data_COMOBO[:,header_COMOBO["Fy"]])
+        # plt.plot(1e3*data_COMOBO[:,header_COMOBO[key1]],data_COMOBO[:,header_COMOBO["Fx"]])
+        # plt.plot(1e3*data_COMOBO[:,header_COMOBO[key1]],data_COMOBO[:,header_COMOBO["Fy"]])
         plt.plot(1e3*data_COMOBO[:,header_COMOBO[key1]],data_COMOBO[:,header_COMOBO["Fz"]])
+
+
+
         plt.show(block=True)
-
-
