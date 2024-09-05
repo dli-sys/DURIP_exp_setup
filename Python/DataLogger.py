@@ -57,10 +57,8 @@ class DataLogger:
         self.load_cell_data = []
         self.robot_data = []
         self.index = 0
-
         # Update the initial timestamp
         self.initial_timestamp = time.perf_counter()
-
         # Clear the data queue (important!)
         with self.data_queue.mutex:  # Acquire the queue's lock to prevent race conditions
             self.data_queue.queue.clear()
@@ -80,8 +78,10 @@ class DataLogger:
                 data_type, timestamp, index, *values = self.data_queue.get(timeout=1)  # Add a timeout to prevent blocking forever
                 if data_type == "robot":
                     self.robot_data.append((timestamp, index, *values))
+                    # print('done w r')
                 elif data_type == "ati":
                     self.load_cell_data.append((timestamp, index, *values))
+                    # print('done w l')
             except queue.Empty:
                 pass  # Handle empty queue gracefully
 
@@ -93,9 +93,11 @@ class DataLogger:
         # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
+        time.sleep(5)
         if self.use_ati:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
-        time.sleep(8)
+        time.sleep(5)
+
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
         print("Start force controlled intrusion")
         moving_vector_down = numpy.array((0, 0, -1*step))
@@ -128,7 +130,7 @@ class DataLogger:
                 rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
                 is_running_flag = int(self.robot.is_program_running())
 
-                # self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
+                self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
                 self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
                 self.index += 1
 
@@ -150,8 +152,8 @@ class DataLogger:
                 # timestamp = time.time() - self.initial_timestamp
                 timestamp = time.perf_counter() - self.initial_timestamp
                 data = self.ati_sensor.collect_sample()
+                self.data_queue.put(("ati", timestamp, self.index, *data))
                 self.load_cell_data.append((timestamp, self.index, *data))
-                # self.data_queue.put(("ati", timestamp, self.index, *data))
                 self.index += 1
             except socket.timeout:
                 print("Load cell communication timeout. Exiting.")
@@ -160,9 +162,20 @@ class DataLogger:
             # time.sleep(0.00000001)
 
     def save_data(self,append_exp_name=None):
+        print("here e save data")
         try:
-            robot_data = self.process_data(self.robot_data)
-            load_cell_data = self.process_data(self.load_cell_data)
+            self.stop_logging()
+            timeout_duration = 5  # Timeout in seconds
+            start_time = time.time()
+            while not self.data_queue.empty() and time.time() - start_time < timeout_duration:
+                time.sleep(0.1)  # Check every 0.1 seconds
+
+            # Check if the queue is still not empty after the timeout
+            if not self.data_queue.empty():
+                print("Warning: Queue not empty after timeout. Some data might not be processed.")
+
+            robot_data = self.robot_data
+            load_cell_data = self.load_cell_data
             # load_cell_data = numpy.array(self.load_cell_data)
 
             data_folder = "data"
@@ -191,8 +204,8 @@ class DataLogger:
                     print(f"Data saved to {load_cell_filename} ")
 
             if self.use_robot and self.use_ati:
-                # robot_data = numpy.array(self.robot_data)
-                # load_cell_data = numpy.array(self.load_cell_data)
+                robot_data = numpy.array(self.robot_data)
+                load_cell_data = numpy.array(self.load_cell_data)
 
                 ati_sampling_rate = len(load_cell_data) /abs(load_cell_data[-1,0]-load_cell_data[0,0])
                 ati_flattened_timestamps = numpy.arange(len(load_cell_data)) / ati_sampling_rate
@@ -273,15 +286,31 @@ class DataLogger:
             print(f"An error occurred during plotting: {e}")
 
     def stop_logging(self):
-        self.stop_event.set()
-        time.sleep(1)  # Allow time for threads to stop gracefully
-        for thread in threading.enumerate():
-            if thread.name != "MainThread":
-                thread_id = thread.ident
-                res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-                if res > 1:
-                    ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
-                    print('Exception raise failure')
-        if self.ati_sensor is not None:
-            self.ati_sensor.stop_streaming()
-            self.robot.close()
+        self.stop_event.set()  # Signal threads to stop
+        time.sleep(1)  # Give threads some time to react to the stop_event
+        self.turn_off()
+
+        # try:
+        #     for thread in threading.enumerate():
+        #         if thread.name != "MainThread":
+        #             thread_id = thread.ident
+        #             res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+        #             if res > 1:
+        #                 ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+        #                 print('Exception raise failure')
+        # except Exception as e:
+        #     print(f"An error occurred while stopping threads: {e}")
+        # finally:  # Ensure cleanup happens even if there's an exception
+        #     if self.ati_sensor is not None:
+        #         try:
+        #             self.ati_sensor.stop_streaming()
+        #         except Exception as e:
+        #             print(f"Error stopping ATI sensor: {e}")
+        #     if self.use_robot:  # Check if robot was initialized before closing
+        #         try:
+        #             self.robot.close()
+        #         except Exception as e:
+        #             print(f"Error closing robot connection: {e}")
+    def turn_off(self):
+        self.robot.close()
+        self.ati_sensor.stop_streaming()
