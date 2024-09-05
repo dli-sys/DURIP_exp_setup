@@ -13,10 +13,12 @@ from numpy import pi
 import matplotlib.pyplot as plt
 from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
 from control_ur_robot import move_ur,rotate_around_h
+import queue
 
 class DataLogger:
     def __init__(self, robot_ip=None, ati_ip=None):
         self.combined_data = None
+        self.data_queue = queue.Queue()
         self.use_robot = robot_ip is not None
         self.use_ati = ati_ip is not None
         self.UR_header = ["Timestamp", "Index","X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
@@ -52,17 +54,35 @@ class DataLogger:
         self.initial_timestamp = time.time()
 
     def flush(self):
+        # Clear the data storage arrays
         self.load_cell_data = []
         self.robot_data = []
 
-    def start_recording(self):
-        # Start threads only for the enabled devices
-        if self.use_robot:
-            threading.Thread(target=self.log_robot_data, daemon=True).start()
-        if self.use_ati:
-            threading.Thread(target=self.log_load_cell_data, daemon=True).start()
-        time.sleep(8)
+        # Reset the index counter
+        self.index = 0
 
+        # Update the initial timestamp to ensure synchronization
+        self.initial_timestamp = time.perf_counter()  # Use perf_counter for better precision
+    # def start_recording(self):
+    #     # Start threads only for the enabled devices
+    #     if self.use_robot:
+    #         threading.Thread(target=self.log_robot_data, daemon=True).start()
+    #     if self.use_ati:
+    #         threading.Thread(target=self.log_load_cell_data, daemon=True).start()
+    #     time.sleep(8)
+
+    def process_data(self):  # New function to process data from the queue
+        while not self.stop_event.is_set():
+            data_type, timestamp, index, *values = self.data_queue.get()
+            if data_type == "robot":
+                self.robot_data.append((timestamp, index, *values))
+            elif data_type == "ati":
+                self.load_cell_data.append((timestamp, index, *values))
+
+    def start_recording(self):
+        # ...
+        threading.Thread(target=self.process_data, daemon=True).start()  # Start data processing thread
+        # ...
 
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
         print("Start force controlled intrusion")
@@ -89,12 +109,15 @@ class DataLogger:
     def log_robot_data(self):
         while not self.stop_event.is_set():
             try:
-                timestamp = time.time() - self.initial_timestamp
-                pos_data = self.robot.get_pos() - self.initial_pose
+                # timestamp = time.time() - self.initial_timestamp
+                timestamp = time.perf_counter() - self.initial_timestamp # alternative timestamp
+                # pos_data = self.robot.get_pos() - self.initial_pose
                 xyz = self.robot.get_pos()
                 rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
-                isRunning_flag = int(self.robot.is_program_running())
-                self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, isRunning_flag))
+                is_running_flag = int(self.robot.is_program_running())
+
+                self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
+                # self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
                 self.index += 1
 
                 if self.index % 1000 == 0:
@@ -112,15 +135,17 @@ class DataLogger:
     def log_load_cell_data(self):
         while not self.stop_event.is_set():
             try:
-                timestamp = time.time() - self.initial_timestamp
+                # timestamp = time.time() - self.initial_timestamp
+                timestamp = time.perf_counter() - self.initial_timestamp
                 data = self.ati_sensor.collect_sample()
-                self.load_cell_data.append((timestamp, self.index, *data))
+                # self.load_cell_data.append((timestamp, self.index, *data))
+                self.data_queue.put(("ati", timestamp, self.index, *data))
                 self.index += 1
             except socket.timeout:
                 print("Load cell communication timeout. Exiting.")
                 self.stop_logging()
                 break
-            time.sleep(0.00000001)
+            # time.sleep(0.00000001)
 
     def save_data(self,append_exp_name=None):
         try:
