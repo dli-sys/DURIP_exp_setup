@@ -1,5 +1,4 @@
 # HKJF
-
 import urx
 import threading
 import time
@@ -54,15 +53,19 @@ class DataLogger:
         self.initial_timestamp = time.time()
 
     def flush(self):
-        # Clear the data storage arrays
+        # Clear the data storage arrays and reset the index
         self.load_cell_data = []
         self.robot_data = []
-
-        # Reset the index counter
         self.index = 0
 
-        # Update the initial timestamp to ensure synchronization
-        self.initial_timestamp = time.perf_counter()  # Use perf_counter for better precision
+        # Update the initial timestamp
+        self.initial_timestamp = time.perf_counter()
+
+        # Clear the data queue (important!)
+        with self.data_queue.mutex:  # Acquire the queue's lock to prevent race conditions
+            self.data_queue.queue.clear()
+
+
     # def start_recording(self):
     #     # Start threads only for the enabled devices
     #     if self.use_robot:
@@ -71,19 +74,28 @@ class DataLogger:
     #         threading.Thread(target=self.log_load_cell_data, daemon=True).start()
     #     time.sleep(8)
 
-    def process_data(self):  # New function to process data from the queue
+    def process_data(self):
         while not self.stop_event.is_set():
-            data_type, timestamp, index, *values = self.data_queue.get()
-            if data_type == "robot":
-                self.robot_data.append((timestamp, index, *values))
-            elif data_type == "ati":
-                self.load_cell_data.append((timestamp, index, *values))
+            try:
+                data_type, timestamp, index, *values = self.data_queue.get(timeout=1)  # Add a timeout to prevent blocking forever
+                if data_type == "robot":
+                    self.robot_data.append((timestamp, index, *values))
+                elif data_type == "ati":
+                    self.load_cell_data.append((timestamp, index, *values))
+            except queue.Empty:
+                pass  # Handle empty queue gracefully
+
 
     def start_recording(self):
-        # ...
-        threading.Thread(target=self.process_data, daemon=True).start()  # Start data processing thread
-        # ...
+        # Start data processing thread
+        threading.Thread(target=self.process_data, daemon=True).start()
 
+        # Start threads only for the enabled devices
+        if self.use_robot:
+            threading.Thread(target=self.log_robot_data, daemon=True).start()
+        if self.use_ati:
+            threading.Thread(target=self.log_load_cell_data, daemon=True).start()
+        time.sleep(8)
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
         print("Start force controlled intrusion")
         moving_vector_down = numpy.array((0, 0, -1*step))
@@ -116,8 +128,8 @@ class DataLogger:
                 rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
                 is_running_flag = int(self.robot.is_program_running())
 
-                self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
-                # self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
+                # self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
+                self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
                 self.index += 1
 
                 if self.index % 1000 == 0:
@@ -138,8 +150,8 @@ class DataLogger:
                 # timestamp = time.time() - self.initial_timestamp
                 timestamp = time.perf_counter() - self.initial_timestamp
                 data = self.ati_sensor.collect_sample()
-                # self.load_cell_data.append((timestamp, self.index, *data))
-                self.data_queue.put(("ati", timestamp, self.index, *data))
+                self.load_cell_data.append((timestamp, self.index, *data))
+                # self.data_queue.put(("ati", timestamp, self.index, *data))
                 self.index += 1
             except socket.timeout:
                 print("Load cell communication timeout. Exiting.")
@@ -149,9 +161,9 @@ class DataLogger:
 
     def save_data(self,append_exp_name=None):
         try:
-
-            robot_data = numpy.array(self.robot_data)
-            load_cell_data = numpy.array(self.load_cell_data)
+            robot_data = self.process_data(self.robot_data)
+            load_cell_data = self.process_data(self.load_cell_data)
+            # load_cell_data = numpy.array(self.load_cell_data)
 
             data_folder = "data"
             os.makedirs(data_folder, exist_ok=True)
