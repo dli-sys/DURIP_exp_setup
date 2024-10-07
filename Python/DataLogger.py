@@ -8,10 +8,8 @@ import datetime
 import socket
 import ctypes
 import numpy
-from numpy import pi
 import matplotlib.pyplot as plt
 from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
-from control_ur_robot import move_ur,rotate_around_h
 import queue
 
 class DataLogger:
@@ -64,13 +62,6 @@ class DataLogger:
             self.data_queue.queue.clear()
 
 
-    # def start_recording(self):
-    #     # Start threads only for the enabled devices
-    #     if self.use_robot:
-    #         threading.Thread(target=self.log_robot_data, daemon=True).start()
-    #     if self.use_ati:
-    #         threading.Thread(target=self.log_load_cell_data, daemon=True).start()
-    #     time.sleep(8)
 
     def process_data(self):
         while not self.stop_event.is_set():
@@ -84,12 +75,18 @@ class DataLogger:
                     # print('done w l')
             except queue.Empty:
                 pass  # Handle empty queue gracefully
+    # def start_recording(self):
+    #     # Start threads only for the enabled devices
+    #     if self.use_robot:
+    #         threading.Thread(target=self.log_robot_data, daemon=True).start()
+    #     if self.use_ati:
+    #         threading.Thread(target=self.log_load_cell_data, daemon=True).start()
+    #     time.sleep(8)
 
 
     def start_recording(self):
         # Start data processing thread
         threading.Thread(target=self.process_data, daemon=True).start()
-
         # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
@@ -97,6 +94,10 @@ class DataLogger:
         if self.use_ati:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
         time.sleep(5)
+    def move_ur(self, moving_vector, v, a, wait=False):
+        current_pose = self.robot.get_pose()
+        current_pose.pos[:] += moving_vector
+        self.robot.movel(current_pose, vel=v, acc=a, wait=wait)
 
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
         print("Start force controlled intrusion")

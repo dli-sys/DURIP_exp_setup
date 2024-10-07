@@ -1,19 +1,9 @@
 # HKJF
-import urx
-import threading
 import time
-import csv
-import os
-import datetime
-import socket
-import ctypes
 import numpy
 from numpy import pi
-import matplotlib.pyplot as plt
 
 # Import your existing files
-from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
-from control_ur_robot import move_ur,rotate_around_h
 from DataLogger import DataLogger
 
 
@@ -46,13 +36,13 @@ if __name__ == '__main__':
         # ur16.set_tcp(tcp)
         # ur16.set_payload(payload_m, payload_location)
         print(f"Current robot location: {ur16.get_pos()}")
+        print(f"Current robot joint angle: {ur16.getj()} ")
         print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
 
-        prepare_pose = [-pi/2,-pi/2,-pi/2,-pi/2,pi/2,pi/2]
-
+        prepare_pose = [-1.7903106848346155, -1.924272199670309, -1.8609415292739868, -0.9263626498034974, 1.5695431232452393, 0.5676261186599731]
         while True:
-            user_input = input("Use current robot position as starting point? (Y/N): ").strip().upper()
-            if user_input == 'Y':
+            user_input = input("Use current robot position as starting point? (Enter/N): ").strip().upper()
+            if user_input == '':
                 exp_pose = ur16.getj()  # Update if user says yes
                 break
             elif user_input == 'N':
@@ -65,36 +55,44 @@ if __name__ == '__main__':
         # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
 
         # start recording
+        dump_timestamp = time.time()
+        print(time.time()-dump_timestamp)
+        data_logger.fluh()
+        print(time.time() - dump_timestamp)
+        # start recording
         data_logger.start_recording()
+        print(time.time() - dump_timestamp)
+        data_logger.flush()
+        print(time.time() - dump_timestamp)
+        time.sleep(5)
+        print(time.time() - dump_timestamp)
+        # data_logger.force_controlled_intrusion(intrusion_threshold=0.8)
+        #time.sleep(2)
 
-        data_logger.force_controlled_intrusion(intrusion_threshold=0.5)
-        move_ur(ur16, moving_vector_down * 60/1000, 3/1000, 1, wait=True)
 
-
-        print("Start dragging")
+        # rotate_around z
+        #print("Start dragging")
         # rotate_around_h(ur16,(0,0,(-179)*pi/180))
-        repeat_time = 5
-        test_vel  = 5/1000
+        repeat_time = 1
+        test_vel = 15/1000
         for jj in range(repeat_time):
-            print(f"Dragging round #{jj+1}/{repeat_time}")
-            move_ur(ur16, moving_vector_right * 100 / 1000, test_vel, 1, wait=True)
+            data_logger.move_ur(ur16, moving_vector_right * 100 / 1000, 1 / 1000, 1, wait=True)
             time.sleep(1)
-            move_ur(ur16, moving_vector_left * 100 / 1000, test_vel, 1, wait=True)
+            data_logger.move_ur(ur16, moving_vector_left * 100 / 1000, 1 / 1000, 1, wait=True)
             time.sleep(1)
+        time.sleep(2)
+        data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
 
-        time.sleep(3)
-
+        time.sleep(2)
 
         data_logger.save_data(append_exp_name=exp_prefix)
-
-        data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
         data_logger.stop_logging()
+
 
     except KeyboardInterrupt:
         data_logger.save_data(append_exp_name=exp_prefix)
         data_logger.stop_logging()
 
     except Exception as e:
-        data_logger.save_data(append_exp_name=exp_prefix)
         data_logger.stop_logging()
         print(f"An error occurred: {e}")

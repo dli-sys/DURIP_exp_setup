@@ -1,19 +1,6 @@
 # HKJF
-import urx
-import threading
 import time
-import csv
-import os
-import datetime
-import socket
-import ctypes
 import numpy
-from numpy import pi
-import matplotlib.pyplot as plt
-
-# Import your existing files
-from read_ati_class_rdt import atiSensor  # Assuming this is your ATI class file
-from control_ur_robot import move_ur,rotate_around_h
 from DataLogger import DataLogger
 
 
@@ -62,35 +49,30 @@ if __name__ == '__main__':
             else:
                 print("Invalid input. Please enter Y or N.")
 
-        # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
-
         # start recording
         data_logger.flush()
         # start recording
+
         data_logger.start_recording()
-        time.sleep(5)
-        # data_logger.force_controlled_intrusion(intrusion_threshold=0.8)
-        # time.sleep(2)
-        move_ur(ur16, moving_vector_down * 60/1000, 3/1000, 1, wait=True)
+        time.sleep(2)
+        # data_logger.flush()
 
         # rotate_around z
         print("Start dragging")
-        # rotate_around_h(ur16,(0,0,(-179)*pi/180))
         repeat_time = 1
-        test_vel = 10/1000
+        test_vel = 20/1000
         for jj in range(repeat_time):
             print(f"Dragging round #{jj+1}/{repeat_time}")
-            move_ur(ur16, moving_vector_right * 100 / 1000, test_vel, 1, wait=True)
-            time.sleep(1)
-            # move_ur(ur16, moving_vector_left * 100 / 1000, test_vel, 1, wait=True)
+            data_logger.move_ur(moving_vector_left * 50 / 1000, test_vel, 1, wait=True)
+            # time.sleep(1)
+            # data_logger.move_ur(moving_vector_left * 100 / 1000, test_vel, 1, wait=True)
             # time.sleep(1)
 
         time.sleep(3)
-        data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
+        data_logger.robot.movej(exp_pose, vel=test_vel, acc=1, wait=True)
+        time.sleep(2)
         data_logger.save_data(append_exp_name=exp_prefix)
 
-
-        # data_logger.stop_logging()
 
     except KeyboardInterrupt:
         data_logger.save_data(append_exp_name=exp_prefix)

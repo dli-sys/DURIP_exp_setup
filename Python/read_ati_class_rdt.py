@@ -23,6 +23,9 @@ class atiSensor:
             self._calibrate()
         except socket.timeout:
             raise ConnectionError(f"Could not connect to the sensor at {self.tcp_ip}.")
+    # def send_message(self,_format='>HHI',_header,_command):
+    #     message = struct.pack(_format , _header, _command)
+    #     self.s.send(message)
 
     def start_streaming_old(self):
         """
@@ -76,6 +79,33 @@ class atiSensor:
 
 if __name__ == '__main__':
     ati_sensor = atiSensor(tcp_ip="192.168.0.121")  # Replace with actual sensor IP
+
+    # time_a = time.time()
+    # ati_sensor.start_streaming()
+    # print(time.time()-time_a)
+    #
+    # time_a = time.time()
+    # ati_sensor.stop_streaming()
+    # print(time.time()-time_a)
+    #
+    # # Test reading cllibration
+    # command = 1
+    # reserved = bytes(19)  # 19 bytes initialized to 0
+    #
+    # message = struct.pack('>B19s', command, reserved)
+    # ati_sensor.s.send(message)
+    # response_format = '>Ifd...'  # Adjust based on the actual format
+    # unpacked_data = struct.unpack(response_format, response_data)
+
+    status = unpacked_data[0]
+    if status == 0:
+        counts_per_force = unpacked_data[1]
+        counts_per_torque = unpacked_data[2]
+        # ... process other calibration parameters ...
+    else:
+        print("Error reading calibration data")
+
+
     try:
         num_samples = 7000  # Specify the number of samples to collect
         data_array = numpy.zeros((num_samples, 9))  # 9 data points per sample
