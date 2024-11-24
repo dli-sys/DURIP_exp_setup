@@ -2,24 +2,45 @@ import serial
 import time
 
 if __name__ == '__main__':
-    with serial.Serial(port='COM8', baudrate=115200, timeout=1) as ser:
+    port = 'COM12'  # Change this to your port
+    baudrate = 115200
 
-
-        commands = ["d2", "c2", "b2", "a2"]
-        command = "d2"
+    # Open the serial connection
+    ser = serial.Serial(port, baudrate, timeout=2)
+    try:
+        commands = ['a2','b2','c2','d2']
         for command in commands:
-            command+='\r'
-            ser.write((command).encode('utf-8'))
-            print(f"Sent: {command.strip()}")
-            time.sleep(1)  # Wait for 2 seconds
+            command+='\r\n'
+            ser.flushInput()  # Flush input buffer
+            time.sleep(0.5)
+            ser.flushOutput()  #
+            time.sleep(0.5)
+            ser.write(command.encode('utf-8'))
+            print(f'Sent: {command.strip()}')
+            time.sleep(2)  # Wait for 2 seconds
 
-        commands = ["d2", "a" "c2", "d", "b2", "c", "a2", "b"]
+
+
+        commands1 = ['d2','a0','c2','d0','b2','c0','a2','b0']
+
+
         while True:
-            for command in commands:
+            for command in commands1:
+                # ser.flushInput()  # Flush input buffer
+                # time.sleep(0.5)
+                ser.flushOutput()  #
+                command += '\r\n'
                 ser.write(command.encode('utf-8'))  # Send command
-                print(f"Sent: {command.strip()}")
-                time.sleep(2)  # Wait for 2 seconds
-            # Check for stop condition
-            if input("Type 'stop' to end or press Enter to continue: ").strip().lower() == 'stop':
-                print("Stopping the command sending.")
-                break
+                print(f'Sent: {command.strip()}')
+                time.sleep(1)  # Wait for 2 seconds
+    except KeyboardInterrupt:
+        commands = ['a', 'b', 'c', 'd']
+        for command in commands:
+            command += '\r\n'
+            ser.flushInput()  # Flush input buffer
+            time.sleep(0.5)
+            ser.flushOutput()  #
+            time.sleep(0.5)
+            ser.write(command.encode('utf-8'))
+            print(f'Sent: {command.strip()}')
+            time.sleep(1)  # Wait for 2 seconds
