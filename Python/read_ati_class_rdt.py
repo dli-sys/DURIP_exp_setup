@@ -88,22 +88,22 @@ if __name__ == '__main__':
     # ati_sensor.stop_streaming()
     # print(time.time()-time_a)
     #
-    # # Test reading cllibration
-    # command = 1
-    # reserved = bytes(19)  # 19 bytes initialized to 0
-    #
+    # # # Test reading cllibration
+    # # command = 1
+    # # reserved = bytes(19)  # 19 bytes initialized to 0
+    # #
     # message = struct.pack('>B19s', command, reserved)
     # ati_sensor.s.send(message)
     # response_format = '>Ifd...'  # Adjust based on the actual format
     # unpacked_data = struct.unpack(response_format, response_data)
-
-    status = unpacked_data[0]
-    if status == 0:
-        counts_per_force = unpacked_data[1]
-        counts_per_torque = unpacked_data[2]
-        # ... process other calibration parameters ...
-    else:
-        print("Error reading calibration data")
+    #
+    # status = unpacked_data[0]
+    # if status == 0:
+    #     counts_per_force = unpacked_data[1]
+    #     counts_per_torque = unpacked_data[2]
+    #     # ... process other calibration parameters ...
+    # else:
+    #     print("Error reading calibration data")
 
 
     try:

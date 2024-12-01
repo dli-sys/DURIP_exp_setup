@@ -14,90 +14,128 @@ import queue
 
 class DataLogger:
     def __init__(self, robot_ip=None, ati_ip=None):
-        self.combined_data = None
         self.data_queue = queue.Queue()
+        self.robot_data = []
+        self.load_cell_data = []
         self.use_robot = robot_ip is not None
         self.use_ati = ati_ip is not None
-        self.UR_header = ["Timestamp", "Index","X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
-        self.FT_header = ["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz"]
-        if not self.use_robot and not self.use_ati:
-            raise ValueError("At least one data source (robot or ATI sensor) must be specified.")
+        self.UR_header = ["Timestamp", "Index", "X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
+        self.FT_header = ["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty",
+                          "Tz"]
 
-        # Initialize robot connection (if needed)
+        # Initialize robot connection
         if self.use_robot:
-            try:
-                self.robot = urx.Robot(robot_ip, use_rt=True, urFirm=5.9)
-                self.robot_data = []
-                time.sleep(3)
-                self.initial_pose = self.robot.get_pos()
-            except urx.urrobot.RobotException as e:
-                print(f"Error connecting to robot: {e}")
-                raise
+            self.robot = urx.Robot(robot_ip, use_rt=True,urFirm=5.9)
 
-        # Initialize ATI sensor (if needed)
+        # Initialize ATI sensor connection
         if self.use_ati:
-            try:
-                self.ati_sensor = atiSensor(tcp_ip=ati_ip)
-                self.load_cell_data = []
-            except (ConnectionError, socket.timeout) as e:
-                print(f"Error connecting to ATI sensor: {e}")
-                if self.use_robot:
-                    self.robot.close()
-                raise
+            self.ati_sensor = atiSensor(tcp_ip=ati_ip)
 
-        # Initialize other variables
+        # Shared timestamp origin
+        self.initial_timestamp = time.perf_counter()
         self.stop_event = threading.Event()
-        self.index = 0
-        self.initial_timestamp = time.time()
 
     def flush(self):
-        # Clear the data storage arrays and reset the index
-        self.load_cell_data = []
-        self.robot_data = []
-        self.index = 0
-        # Update the initial timestamp
-        self.initial_timestamp = time.perf_counter()
-        # Clear the data queue (important!)
-        with self.data_queue.mutex:  # Acquire the queue's lock to prevent race conditions
+        """Flush all buffers and reset indices."""
+        print("Flushing data...")
+        self.robot_data.clear()
+        self.load_cell_data.clear()
+        with self.data_queue.mutex:
             self.data_queue.queue.clear()
+        print("Data flushed.")
 
+    def log_robot_data(self):
+        while not self.stop_event.is_set():
+            try:
+                master_timestamp = time.perf_counter()
+                timestamp = master_timestamp - self.initial_timestamp
+                xyz = self.robot.get_pos()
+                rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
+                is_running_flag = int(self.robot.is_program_running())
 
+                # Add to queue
+                self.data_queue.put(("robot", timestamp, *xyz, rx, ry, rz, is_running_flag))
+            except Exception as e:
+                print(f"Robot data logging error: {e}")
+            finally:
+                pass
+                # time.sleep(0.000001)  # Adjust for optimal performance
+
+    def log_load_cell_data(self):
+        while not self.stop_event.is_set():
+            try:
+                master_timestamp = time.perf_counter()
+                timestamp = master_timestamp - self.initial_timestamp
+                data = self.ati_sensor.collect_sample()
+
+                # Add to queue
+                self.data_queue.put(("ati", timestamp, *data))
+            except Exception as e:
+                print(f"Load cell logging error: {e}")
+            finally:
+                pass
+                # time.sleep(0.00000001)  # Adjust for optimal performance
 
     def process_data(self):
         while not self.stop_event.is_set():
             try:
-                data_type, timestamp, index, *values = self.data_queue.get(timeout=1)  # Add a timeout to prevent blocking forever
-                if data_type == "robot":
-                    self.robot_data.append((timestamp, index, *values))
-                    # print('done w r')
-                elif data_type == "ati":
-                    self.load_cell_data.append((timestamp, index, *values))
-                    # print('done w l')
-            except queue.Empty:
-                pass  # Handle empty queue gracefully
-    # def start_recording(self):
-    #     # Start threads only for the enabled devices
-    #     if self.use_robot:
-    #         threading.Thread(target=self.log_robot_data, daemon=True).start()
-    #     if self.use_ati:
-    #         threading.Thread(target=self.log_load_cell_data, daemon=True).start()
-    #     time.sleep(8)
+                # Batch process multiple items to reduce queue contention
+                while not self.data_queue.empty():
+                    data_type, timestamp, *values = self.data_queue.get()
+                    if data_type == "robot":
+                        self.robot_data.append((timestamp, *values))
+                    elif data_type == "ati":
+                        self.load_cell_data.append((timestamp, *values))
+            except Exception as e:
+                print(f"Data processing error: {e}")
 
-
-    def start_recording(self):
-        # Start data processing thread
+    def start_logging(self):
         threading.Thread(target=self.process_data, daemon=True).start()
-        # Start threads only for the enabled devices
         if self.use_robot:
             threading.Thread(target=self.log_robot_data, daemon=True).start()
-        time.sleep(5)
         if self.use_ati:
             threading.Thread(target=self.log_load_cell_data, daemon=True).start()
-        time.sleep(5)
+
+    def stop_logging(self):
+        self.stop_event.set()
+        # self.flush()
+        if self.use_robot:
+            self.robot.close()
+        if self.use_ati:
+            self.ati_sensor.stop_streaming()
+
+
+
     def move_ur(self, moving_vector, v, a, wait=False):
+
+        current_pose = logger.robot.get_pose()
+        # moving_vector = moving_vector_right*10/1000
+        # v = 0.05
+        # a = 0.1
+        # wait = True
+        # logger.robot.movel(current_pose, moving_vector, v, a, wait)
+
         current_pose = self.robot.get_pose()
         current_pose.pos[:] += moving_vector
         self.robot.movel(current_pose, vel=v, acc=a, wait=wait)
+
+    def rotate_around_h(self, angle_r):
+        # you must set the TCP correctly
+        # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
+        # if rotate around the base flange, set tcp as zeros
+        # rotate around a axis
+        # Tct.orient = m3d.Orientation.new_euler((pi/2,0,0), encoding='XYZ')
+        # rotate around y-axis
+        # Tct.orient = m3d.Orientation.new_euler((0,pi/2,0), encoding='XYZ')
+        # rotate around z-axis
+        # Tct.orient = m3d.Orientation.new_euler((0,0,pi/2), encoding='XYZ')
+        import math3d as m3d
+        pose = self.robot.get_pose()
+        Tct = m3d.Transform()
+        Tct.pos = m3d.Vector(0, 0, 0)
+        Tct.orient = m3d.Orientation.new_euler(angle_r, encoding='XYZ')
+        new_pos = pose * Tct
+        self.robot.movel(new_pos, vel=0.03, acc=1, wait=True, threshold=5)
 
     def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
         print("Start force controlled intrusion")
@@ -119,49 +157,6 @@ class DataLogger:
 
     def robot_pose_calibration(self):
         pass
-
-
-    def log_robot_data(self):
-        while not self.stop_event.is_set():
-            try:
-                # timestamp = time.time() - self.initial_timestamp
-                timestamp = time.perf_counter() - self.initial_timestamp # alternative timestamp
-                # pos_data = self.robot.get_pos() - self.initial_pose
-                xyz = self.robot.get_pos()
-                rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
-                is_running_flag = int(self.robot.is_program_running())
-
-                self.data_queue.put(("robot", timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
-                self.robot_data.append((timestamp, self.index, *xyz, rx, ry, rz, is_running_flag))
-                self.index += 1
-
-                if self.index % 1000 == 0:
-                    self.stop_event.wait(0)
-            except urx.urrobot.RobotException as e:
-                if "Robot stopped" in str(e):
-                    print("Robot stopped unexpectedly. Exiting.")
-                else:
-                    print(f"Unexpected URX exception: {e}")
-                self.stop_logging()
-                break
-            finally:
-                time.sleep(0.00000001)  # Adjust sleep interval if needed
-
-    def log_load_cell_data(self):
-        while not self.stop_event.is_set():
-            try:
-                # timestamp = time.time() - self.initial_timestamp
-                timestamp = time.perf_counter() - self.initial_timestamp
-                data = self.ati_sensor.collect_sample()
-                self.data_queue.put(("ati", timestamp, self.index, *data))
-                self.load_cell_data.append((timestamp, self.index, *data))
-                self.index += 1
-            except socket.timeout:
-                print("Load cell communication timeout. Exiting.")
-                self.stop_logging()
-                break
-            # time.sleep(0.00000001)
-
     def save_data(self,append_exp_name=None):
         print("here e save data")
         try:
@@ -283,35 +278,64 @@ class DataLogger:
                 tb_angle.set_ylabel("Force (N)")
 
                 plt.show(block=True)
+
         except Exception as e:
             print(f"An error occurred during plotting: {e}")
 
-    def stop_logging(self):
-        self.stop_event.set()  # Signal threads to stop
-        time.sleep(1)  # Give threads some time to react to the stop_event
-        self.turn_off()
 
-        # try:
-        #     for thread in threading.enumerate():
-        #         if thread.name != "MainThread":
-        #             thread_id = thread.ident
-        #             res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-        #             if res > 1:
-        #                 ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
-        #                 print('Exception raise failure')
-        # except Exception as e:
-        #     print(f"An error occurred while stopping threads: {e}")
-        # finally:  # Ensure cleanup happens even if there's an exception
-        #     if self.ati_sensor is not None:
-        #         try:
-        #             self.ati_sensor.stop_streaming()
-        #         except Exception as e:
-        #             print(f"Error stopping ATI sensor: {e}")
-        #     if self.use_robot:  # Check if robot was initialized before closing
-        #         try:
-        #             self.robot.close()
-        #         except Exception as e:
-        #             print(f"Error closing robot connection: {e}")
-    def turn_off(self):
-        self.robot.close()
-        self.ati_sensor.stop_streaming()
+if __name__ == '__main__':
+
+    ROBOT_IP = "192.168.0.110"  # Example robot IP
+    ATI_IP = "192.168.0.121"    # Example ATI sensor IP
+
+    moving_vector_left = numpy.array((-1,0,0))
+    moving_vector_right = numpy.array((1,0,0))
+    moving_vector_forward = numpy.array((0,1,0))
+    moving_vector_backward = numpy.array((0,-1,0))
+    moving_vector_up = numpy.array((0,0,1))
+    moving_vector_down = numpy.array((0,0,-1))
+
+    try:
+        # Initialize DataLogger with both robot and ATI sensor
+        logger = DataLogger(robot_ip=ROBOT_IP, ati_ip=ATI_IP)
+        # time.sleep(10)
+
+        print("Starting data logging...")
+        logger.start_logging()
+
+
+        logger.move_ur(moving_vector_down /1000 * 50, v=10 / 1000, a=1, wait=True)
+        time.sleep(2)
+        logger.move_ur(moving_vector_up/1000*50,v=10/1000,a=1, wait=True)
+
+        print("Stopping data logging...")
+        logger.stop_logging()
+
+        print("Saving data for verification...")
+        matplotlib.use('TkAgg')
+        logger.save_data(append_exp_name="test_run")
+        plt.show(block=True)
+        input("Press Enter to exit after viewing the plot.")
+        # Flush data (clears buffers and queues)
+        # logger.flush()
+
+        # Basic statistics for verification
+        if logger.robot_data:
+            print(f"Robot data collected: {len(logger.robot_data)} entries")
+            print(f"Robot timestamp range: {np.min(logger.robot_data, axis=0)[0]} - {np.max(logger.robot_data, axis=0)[0]}")
+
+        if logger.load_cell_data:
+            print(f"Load cell data collected: {len(logger.load_cell_data)} entries")
+            print(f"Load cell timestamp range: {np.min(logger.load_cell_data, axis=0)[0]} - {np.max(logger.load_cell_data, axis=0)[0]}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        logger.stop_logging()
+        logger.save_data(append_exp_name="test_run")
+
+    finally:
+        # Ensure proper cleanup
+        if logger.use_robot:
+            logger.robot.close()
+        if logger.use_ati:
+            logger.ati_sensor.stop_streaming()

@@ -1,0 +1,3 @@
+[submodule "python-urx"]
+	path = python-urx
+	url = https://github.com/SintefManufacturing/python-urx.git
