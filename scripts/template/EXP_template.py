@@ -2,12 +2,26 @@
 import time
 import numpy
 from numpy import pi
+import matplotlib.pyplot as plt
 
 # Import your existing files
 from DataLogger import DataLogger
 
 
 if __name__ == '__main__':
+
+
+    ROBOT_IP = "192.168.0.110"  # Example robot IP
+    ATI_IP = "192.168.0.121"    # Example ATI sensor IP
+
+    moving_vector_left = numpy.array((-1,0,0))
+    moving_vector_right = numpy.array((1,0,0))
+    moving_vector_forward = numpy.array((0,1,0))
+    moving_vector_backward = numpy.array((0,-1,0))
+    moving_vector_up = numpy.array((0,0,1))
+    moving_vector_down = numpy.array((0,0,-1))
+
+
     try:
         user_input = input("Add custom data prefix?").strip().upper()
         if user_input is not "":
@@ -22,14 +36,7 @@ if __name__ == '__main__':
         # Robot moving loop
         # To access the robot, one can use
         ur16 = data_logger.robot
-
         # Define robot variables
-        moving_vector_left = numpy.array((-1, 0, 0))
-        moving_vector_right = numpy.array((1, 0, 0))
-        moving_vector_forward = numpy.array((0, 1, 0))
-        moving_vector_backward = numpy.array((0, -1, 0))
-        moving_vector_up = numpy.array((0, 0, 1))
-        moving_vector_down = numpy.array((0, 0, -1))
         # tcp = ((0, 0, 0.30, 0, 0, 0))
         # payload_m = 0.1
         # payload_location = (0, 0, 0.15)
@@ -39,7 +46,9 @@ if __name__ == '__main__':
         print(f"Current robot joint angle: {ur16.getj()} ")
         print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
 
-        prepare_pose = [-1.7903106848346155, -1.924272199670309, -1.8609415292739868, -0.9263626498034974, 1.5695431232452393, 0.5676261186599731]
+        prepare_pose = []
+
+
         while True:
             user_input = input("Use current robot position as starting point? (Enter/N): ").strip().upper()
             if user_input == '':
@@ -50,49 +59,53 @@ if __name__ == '__main__':
                 data_logger.robot.movej(exp_pose, vel=10 / 1000, acc=0.5, wait=True)
                 break
             else:
-                print("Invalid input. Please enter Y or N.")
+                print("Invalid input. Please enter 'enter' or N.")
 
         # move_ur(ur16, moving_vector_down*80/1000, 3 / 1000, 1, wait=True)
 
-        # start recording
-        dump_timestamp = time.time()
-        print(time.time()-dump_timestamp)
-        data_logger.fluh()
-        print(time.time() - dump_timestamp)
-        # start recording
-        data_logger.start_recording()
-        print(time.time() - dump_timestamp)
-        data_logger.flush()
-        print(time.time() - dump_timestamp)
-        time.sleep(5)
-        print(time.time() - dump_timestamp)
-        # data_logger.force_controlled_intrusion(intrusion_threshold=0.8)
-        #time.sleep(2)
+        print("Starting data logging...")
+        data_logger.start_logging()
 
-
-        # rotate_around z
-        #print("Start dragging")
-        # rotate_around_h(ur16,(0,0,(-179)*pi/180))
         repeat_time = 1
-        test_vel = 15/1000
+        test_vel = 150/1000
+
         for jj in range(repeat_time):
             data_logger.move_ur(ur16, moving_vector_right * 100 / 1000, 1 / 1000, 1, wait=True)
             time.sleep(1)
             data_logger.move_ur(ur16, moving_vector_left * 100 / 1000, 1 / 1000, 1, wait=True)
             time.sleep(1)
-        time.sleep(2)
+
+
+        print("Stopping data logging...")
+        data_logger.stop_logging()
+
+        print("Saving data for verification...")
+        data_logger.save_data(append_exp_name="test_run")
+        plt.show(block=True)
+        input("Press Enter to exit after viewing the plot.")
+
         data_logger.robot.movej(exp_pose, vel=test_vel, acc=0.5, wait=True)
-
         time.sleep(2)
 
-        data_logger.save_data(append_exp_name=exp_prefix)
-        data_logger.stop_logging()
+        # Basic statistics for verification
+        if data_logger.robot_data:
+            print(f"Robot data collected: {len(data_logger.robot_data)} entries")
+            print(
+                f"Robot timestamp range: {np.min(data_logger.robot_data, axis=0)[0]} - {np.max(data_logger.robot_data, axis=0)[0]}")
 
-
-    except KeyboardInterrupt:
-        data_logger.save_data(append_exp_name=exp_prefix)
-        data_logger.stop_logging()
+        if data_logger.load_cell_data:
+            print(f"Load cell data collected: {len(data_logger.load_cell_data)} entries")
+            print(
+                f"Load cell timestamp range: {np.min(data_logger.load_cell_data, axis=0)[0]} - {np.max(data_logger.load_cell_data, axis=0)[0]}")
 
     except Exception as e:
-        data_logger.stop_logging()
         print(f"An error occurred: {e}")
+        data_logger.stop_logging()
+        data_logger.save_data(append_exp_name="test_run")
+
+    finally:
+        # Ensure proper cleanup
+        if data_logger.use_robot:
+            data_logger.robot.close()
+        if data_logger.use_ati:
+            data_logger.ati_sensor.stop_streaming()

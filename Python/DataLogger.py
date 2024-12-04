@@ -118,7 +118,7 @@ class DataLogger:
         current_pose.pos[:] += moving_vector
         self.robot.movel(current_pose, vel=v, acc=a, wait=wait)
 
-    def UR_rotate(self, angle_r, axis="z", warning=True):
+    def UR_rotate(self, angle_r, axis="rz", warning=True):
         """
         Rotates the robot around the specified axis (x, y, z, or custom (rx, ry, rz)).
 
@@ -140,13 +140,13 @@ class DataLogger:
         Tct = m3d.Transform()
         Tct.pos = m3d.Vector(0, 0, 0)  # No translation, just rotation
 
-        if axis == "x":
+        if axis == "rx":
             # Rotation around x-axis
             Tct.orient = m3d.Orientation.new_euler((angle_r, 0, 0), encoding='XYZ')
-        elif axis == "y":
+        elif axis == "ry":
             # Rotation around y-axis
             Tct.orient = m3d.Orientation.new_euler((0, angle_r, 0), encoding='XYZ')
-        elif axis == "z":
+        elif axis == "rz":
             # Rotation around z-axis
             Tct.orient = m3d.Orientation.new_euler((0, 0, angle_r), encoding='XYZ')
         elif axis == "custom" and isinstance(angle_r, tuple) and len(angle_r) == 3:
