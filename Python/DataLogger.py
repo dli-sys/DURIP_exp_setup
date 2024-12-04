@@ -19,8 +19,8 @@ class DataLogger:
         self.load_cell_data = []
         self.use_robot = robot_ip is not None
         self.use_ati = ati_ip is not None
-        self.UR_header = ["Timestamp", "Index", "X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
-        self.FT_header = ["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty",
+        self.UR_header = ["Timestamp", "X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
+        self.FT_header = ["Timestamp", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz", "Tx", "Ty",
                           "Tz"]
 
         # Initialize robot connection
@@ -200,6 +200,9 @@ class DataLogger:
                     print(f"Data saved to {load_cell_filename} ")
 
             if self.use_robot and self.use_ati:
+                # self.UR_header = ["Timestamp", "Index", "X", "Y", "Z", "Rx", "Ry", "Rz", "isRunning"]
+                # self.FT_header = ["Timestamp", "Index", "RDTSequence", "FTSerialNumber", "Status", "Fx", "Fy", "Fz",
+                                  # "Tx", "Ty","Tz"]
                 robot_data = numpy.array(self.robot_data)
                 load_cell_data = numpy.array(self.load_cell_data)
 
