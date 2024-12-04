@@ -105,8 +105,7 @@ class DataLogger:
             self.ati_sensor.stop_streaming()
 
 
-
-    def move_ur(self, moving_vector, v, a, wait=False):
+    def UR_move(self, moving_vector, v, a, wait=False):
 
         current_pose = logger.robot.get_pose()
         # moving_vector = moving_vector_right*10/1000
@@ -119,25 +118,71 @@ class DataLogger:
         current_pose.pos[:] += moving_vector
         self.robot.movel(current_pose, vel=v, acc=a, wait=wait)
 
-    def rotate_around_h(self, angle_r):
-        # you must set the TCP correctly
-        # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
-        # if rotate around the base flange, set tcp as zeros
-        # rotate around a axis
-        # Tct.orient = m3d.Orientation.new_euler((pi/2,0,0), encoding='XYZ')
-        # rotate around y-axis
-        # Tct.orient = m3d.Orientation.new_euler((0,pi/2,0), encoding='XYZ')
-        # rotate around z-axis
-        # Tct.orient = m3d.Orientation.new_euler((0,0,pi/2), encoding='XYZ')
+    def UR_rotate(self, angle_r, axis="z", warning=True):
+        """
+        Rotates the robot around the specified axis (x, y, z, or custom (rx, ry, rz)).
+
+        :param angle_r: The rotation angle in radians (single value for axis rotations, tuple for custom rotations).
+        :param axis: The axis around which to rotate ("x", "y", "z", or "custom" for (rx, ry, rz)).
+        :param warning: If True, show a warning before proceeding with rotation.
+        """
         import math3d as m3d
+
+        # Warning mechanism
+        if warning:
+            print("Warning: Using this function may damage cables or other equipment. Ensure everything is clear.")
+            confirmation = input("Type 'CONFIRM' to proceed with rotation or anything else to cancel: ")
+            if confirmation != "CONFIRM":
+                raise ValueError("Operation canceled. You must confirm by typing 'CONFIRM' to proceed.")
+
+        # Proceed with rotation after confirmation
         pose = self.robot.get_pose()
         Tct = m3d.Transform()
-        Tct.pos = m3d.Vector(0, 0, 0)
-        Tct.orient = m3d.Orientation.new_euler(angle_r, encoding='XYZ')
-        new_pos = pose * Tct
+        Tct.pos = m3d.Vector(0, 0, 0)  # No translation, just rotation
+
+        if axis == "x":
+            # Rotation around x-axis
+            Tct.orient = m3d.Orientation.new_euler((angle_r, 0, 0), encoding='XYZ')
+        elif axis == "y":
+            # Rotation around y-axis
+            Tct.orient = m3d.Orientation.new_euler((0, angle_r, 0), encoding='XYZ')
+        elif axis == "z":
+            # Rotation around z-axis
+            Tct.orient = m3d.Orientation.new_euler((0, 0, angle_r), encoding='XYZ')
+        elif axis == "custom" and isinstance(angle_r, tuple) and len(angle_r) == 3:
+            # Custom rotation (rx, ry, rz)
+            rx, ry, rz = angle_r
+            Tct.orient = m3d.Orientation.new_euler((rx, ry, rz), encoding='XYZ')
+        else:
+            raise ValueError("Invalid axis or custom angle format. Use 'x', 'y', 'z' or 'custom' with (rx, ry, rz).")
+
+        new_pos = pose * Tct  # Apply the rotation transformation
         self.robot.movel(new_pos, vel=0.03, acc=1, wait=True, threshold=5)
 
-    def force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
+    # def rotate_around_h(self, angle_r):
+    #     # you must set the TCP correctly
+    #     # this code is designed so that rotate the x axis of the TCP make sure tcp is correctly configureed
+    #     # if rotate around the base flange, set tcp as zeros
+    #     # rotate around a axis
+    #     # Tct.orient = m3d.Orientation.new_euler((pi/2,0,0), encoding='XYZ')
+    #     # rotate around y-axis
+    #     # Tct.orient = m3d.Orientation.new_euler((0,pi/2,0), encoding='XYZ')
+    #     # rotate around z-axis
+    #     # Tct.orient = m3d.Orientation.new_euler((0,0,pi/2), encoding='XYZ')
+    #     import math3d as m3d
+    #     pose = self.robot.get_pose()
+    #     Tct = m3d.Transform()
+    #     Tct.pos = m3d.Vector(0, 0, 0)
+    #     Tct.orient = m3d.Orientation.new_euler(angle_r, encoding='XYZ')
+    #     new_pos = pose * Tct
+    #     self.robot.movel(new_pos, vel=0.03, acc=1, wait=True, threshold=5)
+
+    def UR_force_controlled_intrusion(self,step = 1/1000,intrusion_threshold=2):
+
+        if not self.use_ati and not self.use_robot:
+            raise RuntimeError(
+                "Both UR robot and ATI sensor must be initialized to perform force-controlled intrusion.")
+
         print("Start force controlled intrusion")
         moving_vector_down = numpy.array((0, 0, -1*step))
         calib_data_z = 0
@@ -157,6 +202,7 @@ class DataLogger:
 
     def robot_pose_calibration(self):
         pass
+    
     def save_data(self,append_exp_name=None):
         print("here e save data")
         try:
@@ -307,15 +353,14 @@ if __name__ == '__main__':
         logger.start_logging()
 
 
-        logger.move_ur(moving_vector_down /1000 * 50, v=10 / 1000, a=1, wait=True)
+        logger.UR_move(moving_vector_down /1000 * 50, v=10 / 1000, a=1, wait=True)
         time.sleep(2)
-        logger.move_ur(moving_vector_up/1000*50,v=10/1000,a=1, wait=True)
+        logger.UR_move(moving_vector_up/1000*50,v=10/1000,a=1, wait=True)
 
         print("Stopping data logging...")
         logger.stop_logging()
 
         print("Saving data for verification...")
-        matplotlib.use('TkAgg')
         logger.save_data(append_exp_name="test_run")
         plt.show(block=True)
         input("Press Enter to exit after viewing the plot.")
