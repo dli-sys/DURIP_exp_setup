@@ -46,7 +46,7 @@ if __name__ == '__main__':
         print(f"Current robot joint angle: {ur16.getj()} ")
         print(f"Current robot joint angle: {numpy.rad2deg(ur16.getj())} ")
 
-        prepare_pose = []
+        prepare_pose = [-2.9297011534320276, -2.1454035244383753, -1.8124042749404907, -0.7549806994250794, -4.710757557545797, -4.470937554036276]
 
 
         while True:
@@ -67,13 +67,14 @@ if __name__ == '__main__':
         data_logger.start_logging()
 
         repeat_time = 1
-        test_vel = 150/1000
+        test_vel = 25/1000
+        distance = 150
 
         for jj in range(repeat_time):
-            data_logger.move_ur(ur16, moving_vector_right * 100 / 1000, 1 / 1000, 1, wait=True)
-            time.sleep(1)
-            data_logger.move_ur(ur16, moving_vector_left * 100 / 1000, 1 / 1000, 1, wait=True)
-            time.sleep(1)
+            data_logger.UR_move( moving_vector_left * distance / 1000, v= test_vel, a=1, wait=True)
+            # time.sleep(2)
+            data_logger.UR_move( moving_vector_right * distance / 1000, v= test_vel, a=1, wait=True)
+            # time.sleep(2)
 
 
         print("Stopping data logging...")
@@ -91,12 +92,12 @@ if __name__ == '__main__':
         if data_logger.robot_data:
             print(f"Robot data collected: {len(data_logger.robot_data)} entries")
             print(
-                f"Robot timestamp range: {np.min(data_logger.robot_data, axis=0)[0]} - {np.max(data_logger.robot_data, axis=0)[0]}")
+                f"Robot timestamp range: {numpy.min(data_logger.robot_data, axis=0)[0]} - {numpy.max(data_logger.robot_data, axis=0)[0]}")
 
         if data_logger.load_cell_data:
             print(f"Load cell data collected: {len(data_logger.load_cell_data)} entries")
             print(
-                f"Load cell timestamp range: {np.min(data_logger.load_cell_data, axis=0)[0]} - {np.max(data_logger.load_cell_data, axis=0)[0]}")
+                f"Load cell timestamp range: {numpy.min(data_logger.load_cell_data, axis=0)[0]} - {numpy.max(data_logger.load_cell_data, axis=0)[0]}")
 
     except Exception as e:
         print(f"An error occurred: {e}")

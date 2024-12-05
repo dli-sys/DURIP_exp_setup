@@ -46,42 +46,38 @@ class DataLogger:
 
     def log_robot_data(self):
         while not self.stop_event.is_set():
-            try:
-                master_timestamp = time.perf_counter()
-                timestamp = master_timestamp - self.initial_timestamp
-                xyz = self.robot.get_pos()
-                rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
-                is_running_flag = int(self.robot.is_program_running())
 
-                # Add to queue
-                self.data_queue.put(("robot", timestamp, *xyz, rx, ry, rz, is_running_flag))
-            except Exception as e:
-                print(f"Robot data logging error: {e}")
-            finally:
-                pass
-                # time.sleep(0.000001)  # Adjust for optimal performance
+            master_timestamp = time.perf_counter()
+            timestamp = master_timestamp - self.initial_timestamp
+            xyz = self.robot.get_pos()
+            rx, ry, rz = self.robot.get_orientation().to_euler('xyz')
+            is_running_flag = int(self.robot.is_program_running())
+
+            # Add to queue
+            self.data_queue.put(("robot", timestamp, *xyz, rx, ry, rz, is_running_flag))
+
+            # time.sleep(0.000001)  # Adjust for optimal performance
 
     def log_load_cell_data(self):
         while not self.stop_event.is_set():
-            try:
-                master_timestamp = time.perf_counter()
-                timestamp = master_timestamp - self.initial_timestamp
-                data = self.ati_sensor.collect_sample()
 
-                # Add to queue
-                self.data_queue.put(("ati", timestamp, *data))
-            except Exception as e:
-                print(f"Load cell logging error: {e}")
-            finally:
-                pass
-                # time.sleep(0.00000001)  # Adjust for optimal performance
+            master_timestamp = time.perf_counter()
+            timestamp = master_timestamp - self.initial_timestamp
+            data = self.ati_sensor.collect_sample()
+
+            # Add to queue
+            self.data_queue.put(("ati", timestamp, *data))
+
+            # time.sleep(0.000001)  # Adjust for optimal performance
 
     def process_data(self):
         while not self.stop_event.is_set():
             try:
-                # Batch process multiple items to reduce queue contention
+                batch = []
                 while not self.data_queue.empty():
-                    data_type, timestamp, *values = self.data_queue.get()
+                    batch.append(self.data_queue.get())
+
+                for data_type, timestamp, *values in batch:
                     if data_type == "robot":
                         self.robot_data.append((timestamp, *values))
                     elif data_type == "ati":
@@ -107,7 +103,7 @@ class DataLogger:
 
     def UR_move(self, moving_vector, v, a, wait=False):
 
-        current_pose = logger.robot.get_pose()
+        # current_pose = logger.robot.get_pose()
         # moving_vector = moving_vector_right*10/1000
         # v = 0.05
         # a = 0.1
@@ -272,7 +268,7 @@ class DataLogger:
 
                 # Interpolate UR data to match flattened timestamps (assuming 100 Hz)
                 ur_timestamps = robot_data[:, 0]
-                ur_values = robot_data[:, 2:]  # X, Y, Z, Rx, Ry, Rz, isRunning
+                ur_values = robot_data[:, 1:]  # X, Y, Z, Rx, Ry, Rz, isRunning
                 if not (ur_timestamps[0] <= flattened_timestamps[0] and ur_timestamps[-1] >= flattened_timestamps[-1]):
                     print("Warning: UR timestamps fall outside the range of FT timestamps. Interpolation may be inaccurate.")
                 interpolated_ur_values = numpy.zeros((len(flattened_timestamps), ur_values.shape[1]))
@@ -285,7 +281,7 @@ class DataLogger:
                 combined_filename = os.path.join(data_folder, f"{timestamp_str}_COMBO.csv")
                 with open(combined_filename, 'w', newline='') as combined_file:
                     combined_writer = csv.writer(combined_file)
-                    combined_writer.writerow(["Timestamp"] + self.UR_header[2:] + self.FT_header[2:])
+                    combined_writer.writerow(["Timestamp"] + self.UR_header[1:] + self.FT_header[2:])
                     combined_writer.writerows(self.combined_data)
                 print(f"Combined data saved to {combined_filename}")
 
@@ -370,11 +366,11 @@ if __name__ == '__main__':
         # Basic statistics for verification
         if logger.robot_data:
             print(f"Robot data collected: {len(logger.robot_data)} entries")
-            print(f"Robot timestamp range: {np.min(logger.robot_data, axis=0)[0]} - {np.max(logger.robot_data, axis=0)[0]}")
+            print(f"Robot timestamp range: {numpy.min(logger.robot_data, axis=0)[0]} - {numpy.max(logger.robot_data, axis=0)[0]}")
 
         if logger.load_cell_data:
             print(f"Load cell data collected: {len(logger.load_cell_data)} entries")
-            print(f"Load cell timestamp range: {np.min(logger.load_cell_data, axis=0)[0]} - {np.max(logger.load_cell_data, axis=0)[0]}")
+            print(f"Load cell timestamp range: {numpy.min(logger.load_cell_data, axis=0)[0]} - {numpy.max(logger.load_cell_data, axis=0)[0]}")
 
     except Exception as e:
         print(f"An error occurred: {e}")
