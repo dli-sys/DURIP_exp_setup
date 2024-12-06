@@ -149,8 +149,8 @@ def collect_oneline(calib_data, time_a, initial_pose, existing_data=[]):
     time_b = time.time() - time_a
     ini_line1 = numpy.append(time_b, ft_data)
     new_line = numpy.append(ini_line1, position_data)
-    time.sleep(1e-3)
-    if existing_data == []:
+    # time.sleep(0.)
+    if len(existing_data) == 0:
         existing_data_1 =  new_line  # Create a new list of lists
     else:
         existing_data_1 = numpy.vstack((existing_data, new_line))
@@ -191,8 +191,8 @@ if __name__ == '__main__':
 
     ur5.getj()
 
-    prepare_j = [-1.5871909300433558, -1.7489811382689417, -2.0817224979400635, -0.8993271154216309, 1.5704190731048584, 2.4225192070007324]
-    ur5.movej(prepare_j,vel=30/1000,acc=1,wait=True)
+    prepare_j = [-1.5675376097308558, -1.6162258587279261, -1.237281322479248, -1.863096376458639, 1.5674768686294556, 2.349078416824341]
+    # ur5.movej(prepare_j,vel=30/1000,acc=1,wait=True)
 
 
     distance = 100/1000
@@ -211,16 +211,16 @@ if __name__ == '__main__':
 
     data_storage = []
 
-
     try:
-        while True:
-            data_storage = collect_oneline(calib_data, time_a, initial_pose, data_storage)
-            repeat_time = 4
-            for jj in range(repeat_time):
-                data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 20/1000, acc = 0.1)
-                data_storage = tictoc(data_storage,pause_time=1)
-                data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=20/1000, acc = 0.1)
-                data_storage = tictoc(data_storage, pause_time=1)
+        data_storage = collect_oneline(calib_data, time_a, initial_pose, data_storage)
+        data_storage = tictoc(data_storage, pause_time=1)
+
+        repeat_time = 3
+        for jj in range(repeat_time):
+            data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 20/1000, acc = 0.1)
+            data_storage = tictoc(data_storage,pause_time=1)
+            data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=20/1000, acc = 0.1)
+            data_storage = tictoc(data_storage, pause_time=1)
 
     except KeyboardInterrupt:
         pass
@@ -228,15 +228,6 @@ if __name__ == '__main__':
 
     print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
 
-    # plt.figure()
-    # digit = 8
-    # plt.plot(data_storage[:, 0], data_storage[:, digit])
-    # # plt.show(block=True)
-    #
-    # plt.figure()
-    # digit = 1
-    # plt.plot(data_storage[:, 0], data_storage[:, digit])
-    # # plt.show(block=True)
 
     plt.figure()
     plt.plot(data_storage[:, 8]*1e3, data_storage[:, 1])
@@ -248,6 +239,12 @@ if __name__ == '__main__':
 
     plt.figure()
     plt.plot(data_storage[:, 8]*1e3, data_storage[:, 3])
+
+    plt.figure()
+    plt.plot(data_storage[:, 0], data_storage[:, 8])
+
+    plt.figure()
+    plt.plot(data_storage[:, 8])
     plt.show(block=True)
 
 
