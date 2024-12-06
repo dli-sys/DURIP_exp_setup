@@ -161,17 +161,14 @@ if __name__ == '__main__':
 
     prepare_j = [-1.5871909300433558, -1.7489811382689417, -2.0817224979400635, -0.8993271154216309, 1.5704190731048584, 2.4225192070007324]
     ur5.movej(prepare_j,vel=30/1000,acc=1,wait=True)
+    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
-
-    distance = 100/1000
-    data_storage = []
-
-    input("start fluid")
+    # input("start fluid")
     depth = 80/1000
-    move_ur5(ur5,moving_vector_down*depth,v = 20/1000,a=1,wait=True)
+    # move_ur5(ur5,moving_vector_down*depth,v = 20/1000,a=1,wait=True)
 
     input("turn off fluid and Start calibrate")
-    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+
     input("start vib")
 
     initial_pose = ur5.get_pos()[:]
@@ -190,8 +187,8 @@ if __name__ == '__main__':
 
     repeat_time = 4
     for jj in range(repeat_time):
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 20/1000, acc = 0.1)
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=20/1000, acc = 0.1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_down*depth, vel = 5/1000, acc = 0.1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_up* depth, vel=5/1000, acc = 0.1)
 
 
     print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
@@ -207,17 +204,19 @@ if __name__ == '__main__':
     # # plt.show(block=True)
 
     plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 1])
+    plt.plot(data_storage[:, -1]*1e3, data_storage[:, 1])
     # plt.show(block=True)
 
     plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 2])
+    plt.plot(data_storage[:, -1]*1e3, data_storage[:, 2])
     # plt.show(block=True)
 
     plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 3])
+    plt.plot(data_storage[:, -1]*1e3, data_storage[:, 3])
     plt.show(block=True)
 
+    # no_data = data_storage
+    # vib_data  = data_storage
+    # fluid_data = data_storage
 
-
-    numpy.savetxt("no_vib_drag_vel20_dis100.csv",data_storage, fmt='%.18e', delimiter=',',newline='\n')
+    numpy.savetxt("vib_intrusion_vel20_dep80.csv",data_storage, fmt='%.18e', delimiter=',',newline='\n')
