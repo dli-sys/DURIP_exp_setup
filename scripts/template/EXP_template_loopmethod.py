@@ -112,88 +112,89 @@ def butter_lowpass_filter(data, cutoff, fs, order):
     y = filtfilt(b, a, data)
     return y
 
+def move_ur5_w_collect(ur5, ext_data, moving_vector, v=1e-3, a=0.1):
+    int_initial_pose = ur5.get_pos()
 
-ati_port = "192.168.0.121"
-ur5_port = "192.168.0.110"
+    total_distance = numpy.linalg.norm(moving_vector)
+    move_ur5(ur5, moving_vector, 1e-3, 0.1, wait=False)
 
-moving_vector_left = numpy.array((-1, 0, 0))
-moving_vector_right = numpy.array((1, 0, 0))
-moving_vector_forward = numpy.array((0, 1, 0))
-moving_vector_backward = numpy.array((0, -1, 0))
-moving_vector_up = numpy.array((0, 0, 1))
-moving_vector_down = numpy.array((0, 0, -1))
+    while abs(numpy.linalg.norm(ur5.get_pos() - int_initial_pose)) >  total_distance*0.995 :
+        time_b = time.time() - time_a
+        ft_data = get_data(ati_gamma, message) - calib_data
+        position_data = ur5.get_pos()[:] - initial_pose
+        current_data0 = numpy.append(time_b, ft_data)
+        current_data = numpy.append(current_data0, position_data)
+        ext_data = numpy.vstack((ext_data, current_data))
+    return ext_data # will python operate this variable?
 
-counts_per_unit = numpy.array([1000000] * 3 + [1000000] * 3)
-TCP_PORT = 49152
-BUFFER_SIZE = 1024
-order = 'big'
+if __name__ == '__main__':
 
-ati_gamma, message = Init_Ati_Sensor(ati_port)
-calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+    ati_port = "192.168.0.121"
+    ur5_port = "192.168.0.110"
 
-ur5 = Init_ur5(ur5_port)
+    moving_vector_left = numpy.array((-1, 0, 0))
+    moving_vector_right = numpy.array((1, 0, 0))
+    moving_vector_forward = numpy.array((0, 1, 0))
+    moving_vector_backward = numpy.array((0, -1, 0))
+    moving_vector_up = numpy.array((0, 0, 1))
+    moving_vector_down = numpy.array((0, 0, -1))
 
-calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
-ur5.getj()
-tensile_j = [-2.7783332506762903, -2.040734430352682, -1.7743191719055176, -0.9084790509990235, 1.5741095542907715, 0.3636760711669922]
-inflated_tensile_j = [-2.778273646031515, -2.0281855068602503, -1.7625762224197388, -0.932675914173462, 1.574264407157898, 0.36365222930908203]
-deflated_tensile_j = [-2.7782819906817835, -2.0379463634886683, -1.7716891765594482, -0.913682298069336, 1.574294924736023, 0.363668829202652]
+    counts_per_unit = numpy.array([1000000] * 3 + [1000000] * 3)
+    TCP_PORT = 49152
+    BUFFER_SIZE = 1024
+    order = 'big'
 
-ur5.movej(deflated_tensile_j,vel=0.01,acc=1,wait=True)
-calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+    ati_gamma, message = Init_Ati_Sensor(ati_port)
+    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
-depth = 10/1000
-distance = 100/1000
-angle = 0
+    ur5 = Init_ur5(ur5_port)
 
-data_storage = []
-time_a = time.time()
-initial_pose = ur5.get_pos()[:]
+    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+    ur5.getj()
+    tensile_j = [-2.7783332506762903, -2.040734430352682, -1.7743191719055176, -0.9084790509990235, 1.5741095542907715, 0.3636760711669922]
+    inflated_tensile_j = [-2.778273646031515, -2.0281855068602503, -1.7625762224197388, -0.932675914173462, 1.574264407157898, 0.36365222930908203]
+    deflated_tensile_j = [-2.7782819906817835, -2.0379463634886683, -1.7716891765594482, -0.913682298069336, 1.574294924736023, 0.363668829202652]
 
-ii = 0
-total = 40000
+    # ur5.movej(deflated_tensile_j,vel=0.01,acc=1,wait=True)
+    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+    input("Start vib")
 
-move_ur5(ur5, moving_vector_down * depth, 1e-3, 0.1, wait=False)
-while abs(ur5.get_pos()[-1] - initial_pose[-1])< depth*0.99:
-    ii += 1
-    time_b = time.time() - time_a
+    depth = 10/1000
+    distance = 100/1000
+    angle = 0
+
+    data_storage = []
+
+
+    initial_pose = ur5.get_pos()[:]
     ft_data = get_data(ati_gamma, message) - calib_data
     position_data = ur5.get_pos()[:] - initial_pose
-    current_data= []
-    current_data0 = numpy.append(time_b, ft_data)
-    current_data = numpy.append(current_data0, position_data)
 
-    if ii == 1:  # Initialize data_storage on the first iteration
-        data_storage = current_data
-    else:
-        data_storage = numpy.vstack((data_storage, current_data))
-print(ii)
-print(data_storage.shape)
-move_ur5(ur5, moving_vector_up * depth, 1e-3, 0.1, wait=False)
+    time_a = time.time()
+    time_b  = time.time() - time_a
 
-while abs(ur5.get_pos()[-1] - initial_pose[-1])> 0.1/1000:
-    ii += 1
-    time_b = time.time() - time_a
-    ft_data = get_data(ati_gamma, message) - calib_data
-    position_data = ur5.get_pos()[:] - initial_pose
-    current_data= []
-    current_data0 = numpy.append(time_b, ft_data)
-    current_data = numpy.append(current_data0, position_data)
+    ini_line = []
+    ini_line = numpy.append(time_b, ft_data)
+    ini_line = numpy.append(ini_line, position_data)
 
-    data_storage = numpy.vstack((data_storage, current_data))
-print(ii)
-print(data_storage.shape)
-# time.sleep(0.0001)
+    data_storage = ini_line
 
 
+    distance = 200 / 1000
 
-print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
+    repeat_time = 5
+    for jj in range(repeat_time):
+        data_storage= move_ur5_w_collect(ur5,data_storage,moving_vector_right*distance, v = 5e-3, a = 5e-3)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_left* distance, v=5e-3, a=5e-3)
 
-plt.figure()
-digit = 3
-plt.plot(data_storage[:, 0], data_storage[:, digit])
 
-plt.figure()
-plt.plot(data_storage[:, 9], data_storage[:, 3])
+    print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
 
-numpy.savetxt("deflated_0.csv",data_storage, fmt='%.18e', delimiter=',',newline='\n')
+    plt.figure()
+    digit = 3
+    plt.plot(data_storage[:, 0], data_storage[:, digit])
+
+    plt.figure()
+    plt.plot(data_storage[:, 9], data_storage[:, 3])
+
+    numpy.savetxt("deflated_0.csv",data_storage, fmt='%.18e', delimiter=',',newline='\n')
