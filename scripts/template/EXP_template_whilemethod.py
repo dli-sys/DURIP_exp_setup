@@ -113,39 +113,9 @@ def butter_lowpass_filter(data, cutoff, fs, order):
     return y
 
 
-def move_ur5_w_collect(ur5, ext_data, moving_vector, vel=1e-3, acc=0.1):
-    # ext_data = data_storage
-    # moving_vector =moving_vector_backward*distance
-    # vel = 5/1000
-    # acc=1
-    int_initial_pose = ur5.get_pos()
-    time_a = time.time()
-    total_distance = numpy.linalg.norm(moving_vector)
-    move_ur5(ur5, moving_vector, v=vel, a=acc, wait=False)
-    while abs(numpy.linalg.norm(ur5.get_pos() - int_initial_pose)) < total_distance * 0.995:
-        ext_data1 = collect_oneline(calib_data, time_a, initial_pose, ext_data)
-        # time_b = time.time() - time_a
-        # ft_data = get_data(ati_gamma, message) - calib_data
-        # position_data = ur5.get_pos()[:] - initial_pose
-        # current_data0 = numpy.append(time_b, ft_data)
-        # current_data = numpy.append(current_data0, position_data)
-        # ext_data = numpy.vstack((ext_data, current_data))
-        # print(abs(numpy.linalg.norm(ur5.get_pos() - int_initial_pose)))
-    return ext_data1  # will python operate this variable?
-
-
-# def collect_oneline(calib_data,time_a,initial_pose):
-#     ft_data = get_data(ati_gamma, message) - calib_data
-#     position_data = ur5.get_pos()[:] - initial_pose
-#     time_b  = time.time() - time_a
-#     ini_line2 = []
-#     ini_line1 = numpy.append(time_b, ft_data)
-#     ini_line = numpy.append(ini_line1, position_data)
-#     return ini_line
-
-def collect_oneline(calib_data, time_a, initial_pose, existing_data=[]):
+def collect_oneline(calib_data, time_a, existing_data):
     ft_data = get_data(ati_gamma, message) - calib_data
-    position_data = ur5.get_pos()[:] - initial_pose
+    position_data = ur5.get_pos()[:]
     time_b = time.time() - time_a
     ini_line1 = numpy.append(time_b, ft_data)
     new_line = numpy.append(ini_line1, position_data)
@@ -157,13 +127,30 @@ def collect_oneline(calib_data, time_a, initial_pose, existing_data=[]):
     # existing_data.append(new_line)  # Append to the existing list of lists
     return existing_data_1
 
+def move_ur5_w_collect(ur5, ext_data, moving_vector, vel=1e-3, acc=0.1):
+    # ext_data = data_storage
+    # moving_vector =moving_vector_backward*distance
+    # vel = 5/1000
+    # acc=1
+    int_initial_pose = ur5.get_pos()[:]
+    time_a = time.time()
+    total_distance = numpy.linalg.norm(moving_vector)
+    move_ur5(ur5, moving_vector, v=vel, a=acc, wait=False)
+    while abs(numpy.linalg.norm(ur5.get_pos()[:] - int_initial_pose)) < total_distance * 0.995:
+        ext_data = collect_oneline(calib_data, time_a, ext_data)
+    return ext_data  # will python operate this variable?
+
+
 def tictoc(data_storage,pause_time = 3):
     time_tic = time.time()
     while (time.time() - time_tic) < pause_time:
-        data_storage = collect_oneline(calib_data, time_a, initial_pose, data_storage)
+        data_storage = collect_oneline(calib_data, time_a, data_storage)
     return data_storage
 
-
+def plot_data(data,key1='ts',key2='Fx'):
+    raw_header = ["ts", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz", "x", "y", "z","isMoving"]
+    header = {raw_header: i for i, raw_header in enumerate(raw_header)}
+    plt.plot(data[:, header[key1]], data[:, header[key2]])
 
 
 if __name__ == '__main__':
@@ -187,43 +174,31 @@ if __name__ == '__main__':
     calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
     ur5 = Init_ur5(ur5_port)
-
-
-    ur5.getj()
-
-    prepare_j = [-1.5675376097308558, -1.6162258587279261, -1.237281322479248, -1.863096376458639, 1.5674768686294556, 2.349078416824341]
-    # ur5.movej(prepare_j,vel=30/1000,acc=1,wait=True)
+    initial_pose = ur5.get_pos()[:]
 
 
     distance = 100/1000
-    data_storage = []
-
-    input("start fluid")
-    depth = 80/1000
-    move_ur5(ur5,moving_vector_down*depth,v = 20/1000,a=1,wait=True)
-
-    input("turn off fluid and Start calibrate")
-    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
-    input("start vib")
 
     time_a = time.time()
-    initial_pose = ur5.get_pos()[:]
-
     data_storage = []
+    data_storage = collect_oneline(calib_data, time_a, data_storage)
+    data_storage = tictoc(data_storage, pause_time=1)
 
-    try:
-        data_storage = collect_oneline(calib_data, time_a, initial_pose, data_storage)
+    repeat_time = 1
+    for _ in range(repeat_time):
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_left*distance, vel = 20/1000, acc = 0.1)
+        data_storage = tictoc(data_storage,pause_time=1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_right* distance, vel=20/1000, acc = 0.1)
         data_storage = tictoc(data_storage, pause_time=1)
-
-        repeat_time = 3
-        for jj in range(repeat_time):
-            data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 20/1000, acc = 0.1)
-            data_storage = tictoc(data_storage,pause_time=1)
-            data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=20/1000, acc = 0.1)
-            data_storage = tictoc(data_storage, pause_time=1)
 
     except KeyboardInterrupt:
         pass
+
+    plt.close('all')
+    plt.figure()
+    plot_data(data_storage, key1='ts', key2='Fx')
+    # plt.plot(data_storage[:,2])
+    plt.show(block=True)
 
 
     print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
