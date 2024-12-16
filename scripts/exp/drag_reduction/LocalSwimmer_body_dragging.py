@@ -173,8 +173,30 @@ if __name__ == '__main__':
     ati_gamma, message = Init_Ati_Sensor(ati_port)
     calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
+
+
+
     ur5 = Init_ur5(ur5_port)
     initial_pose = ur5.get_pos()[:]
+
+    ur5.set_pos(prepare_pose)
+
+
+
+    fluidlization_pin = 4
+    ur5.set_digital_out(fluidlization_pin,1)
+    time.sleep(5)
+
+
+    ur5.set_pos(intrusion_pose)
+
+    ur5.set_digital_out(fluidlization_pin,0)
+    time.sleep(5)
+
+
+    calibrate
+
+    set_vibration(1)
 
 
     distance = 100/1000
