@@ -38,6 +38,48 @@ def move_ur5(ur5, moving_vector, v, a, wait=False):
     ur5.movel(current_pose, vel=v, acc=a, wait=wait)
 
 
+def rotate_ur(ur5, angle_r, axis="rz", warning=True):
+    """
+    Rotates the robot around the specified axis (x, y, z, or custom (rx, ry, rz)).
+
+    :param angle_r: The rotation angle in radians (single value for axis rotations, tuple for custom rotations).
+    :param axis: The axis around which to rotate ("x", "y", "z", or "custom" for (rx, ry, rz)).
+    :param warning: If True, show a warning before proceeding with rotation.
+    """
+    import math3d as m3d
+
+    # Warning mechanism
+    if warning:
+        print("Warning: Using this function may damage cables or other equipment. Ensure everything is clear.")
+        confirmation = input("Type 'CONFIRM' to proceed with rotation or anything else to cancel: ")
+        if confirmation != "CONFIRM":
+            raise ValueError("Operation canceled. You must confirm by typing 'CONFIRM' to proceed.")
+
+    # Proceed with rotation after confirmation
+    pose = ur5.get_pose()
+    Tct = m3d.Transform()
+    Tct.pos = m3d.Vector(0, 0, 0)  # No translation, just rotation
+
+    if axis == "rx":
+        # Rotation around x-axis
+        Tct.orient = m3d.Orientation.new_euler((angle_r, 0, 0), encoding='XYZ')
+    elif axis == "ry":
+        # Rotation around y-axis
+        Tct.orient = m3d.Orientation.new_euler((0, angle_r, 0), encoding='XYZ')
+    elif axis == "rz":
+        # Rotation around z-axis
+        Tct.orient = m3d.Orientation.new_euler((0, 0, angle_r), encoding='XYZ')
+    elif axis == "custom" and isinstance(angle_r, tuple) and len(angle_r) == 3:
+        # Custom rotation (rx, ry, rz)
+        rx, ry, rz = angle_r
+        Tct.orient = m3d.Orientation.new_euler((rx, ry, rz), encoding='XYZ')
+    else:
+        raise ValueError("Invalid axis or custom angle format. Use 'x', 'y', 'z' or 'custom' with (rx, ry, rz).")
+
+    new_pos = pose * Tct  # Apply the rotation transformation
+    ur5.movel(new_pos, vel=0.03, acc=1, wait=True, threshold=5)
+
+
 def Init_Ati_Sensor(TCP_IP):
     import socket
     print("Initilizing ati sensor")
@@ -133,7 +175,7 @@ def move_ur5_w_collect(ur5, ext_data, moving_vector, vel=1e-3, acc=0.1):
     # vel = 5/1000
     # acc=1
     int_initial_pose = ur5.get_pos()[:]
-    time_a = time.time()
+    # time_a = time.time()
     total_distance = numpy.linalg.norm(moving_vector)
     move_ur5(ur5, moving_vector, v=vel, a=acc, wait=False)
     while abs(numpy.linalg.norm(ur5.get_pos()[:] - int_initial_pose)) < total_distance * 0.995:
@@ -174,51 +216,46 @@ if __name__ == '__main__':
     calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
 
-
-
     ur5 = Init_ur5(ur5_port)
-    initial_pose = ur5.get_pos()[:]
-
-    ur5.set_pos(prepare_pose)
-
-
+    exp_pose_j = [-1.9872496763812464, -1.784063001672262, -1.7090473175048828, -1.241468147640564, 1.5645859241485596, 1.1550921201705933]
+    ur5.movej(exp_pose_j,vel=50/1000,acc=1,wait=True)
 
     fluidlization_pin = 4
     ur5.set_digital_out(fluidlization_pin,1)
     time.sleep(5)
 
-    ur5.set_tool_voltage(12)
+    robot_depth = 60/1000
+    move_ur5(ur5, moving_vector_down*robot_depth, v = 10/1000,a=0.1,wait=True)
+    angle_of_attack = 10
+    rotate_ur(ur5, angle_of_attack/180*pi)
 
-
-    ur5.set_pos(intrusion_pose)
 
     ur5.set_digital_out(fluidlization_pin,0)
-    time.sleep(5)
+    time.sleep(10)
+    calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
+
+    # ur5.set_tool_voltage(12) # Optional vibration
 
 
-    calibrate
-
-    set_vibration(1)
-
-
-    distance = 100/1000
+    initial_pose = ur5.get_pos()[:]
+    distance = 150/1000
 
     time_a = time.time()
     data_storage = []
     data_storage = collect_oneline(calib_data, time_a, data_storage)
     data_storage = tictoc(data_storage, pause_time=1)
 
-    repeat_time = 1
+    repeat_time = 2
     for _ in range(repeat_time):
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_left*distance, vel = 20/1000, acc = 0.1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 10/1000, acc = 0.1)
         data_storage = tictoc(data_storage,pause_time=1)
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_right* distance, vel=20/1000, acc = 0.1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=10/1000, acc = 0.1)
         data_storage = tictoc(data_storage, pause_time=1)
 
 
     plt.close('all')
     plt.figure()
-    plot_data(data_storage, key1='ts', key2='Fx')
+    plot_data(data_storage, key1='y', key2='Fx')
     # plt.plot(data_storage[:,2])
     plt.show(block=True)
 
@@ -243,6 +280,11 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(data_storage[:, 8])
     plt.show(block=True)
+
+
+    for ii in range(10):
+        plt.plot(data_storage[:, ii])
+        plt.show(block=True)
 
 
 
