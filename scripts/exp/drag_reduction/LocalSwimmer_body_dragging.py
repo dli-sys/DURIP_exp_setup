@@ -187,6 +187,8 @@ if __name__ == '__main__':
     ur5.set_digital_out(fluidlization_pin,1)
     time.sleep(5)
 
+    ur5.set_tool_voltage(12)
+
 
     ur5.set_pos(intrusion_pose)
 
