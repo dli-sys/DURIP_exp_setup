@@ -148,7 +148,7 @@ def get_data(s, message):
 
 def butter_lowpass_filter(data, cutoff, fs, order):
     from scipy.signal import butter, filtfilt
-    normal_cutoff = cutoff / nyq
+    normal_cutoff = cutoff / (fs/2)
     # Get the filter coefficients
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
     y = filtfilt(b, a, data)
@@ -160,7 +160,8 @@ def collect_oneline(calib_data, time_a, existing_data):
     position_data = ur5.get_pos()[:]
     time_b = time.time() - time_a
     ini_line1 = numpy.append(time_b, ft_data)
-    new_line = numpy.append(ini_line1, position_data)
+    new_line1 = numpy.append(ini_line1, position_data)
+    new_line = numpy.append(new_line1, int(ur5.is_program_running()))
     # time.sleep(0.)
     if len(existing_data) == 0:
         existing_data_1 =  new_line  # Create a new list of lists
@@ -169,7 +170,7 @@ def collect_oneline(calib_data, time_a, existing_data):
     # existing_data.append(new_line)  # Append to the existing list of lists
     return existing_data_1
 
-def move_ur5_w_collect(ur5, ext_data, moving_vector, vel=1e-3, acc=0.1):
+def move_ur5_w_collect(ur5, ext_data, moving_vector, time_a,vel=1e-3, acc=0.1):
     # ext_data = data_storage
     # moving_vector =moving_vector_backward*distance
     # vel = 5/1000
@@ -183,7 +184,7 @@ def move_ur5_w_collect(ur5, ext_data, moving_vector, vel=1e-3, acc=0.1):
     return ext_data  # will python operate this variable?
 
 
-def tictoc(data_storage,pause_time = 3):
+def tictoc(data_storage,time_a,pause_time = 3):
     time_tic = time.time()
     while (time.time() - time_tic) < pause_time:
         data_storage = collect_oneline(calib_data, time_a, data_storage)
@@ -217,75 +218,88 @@ if __name__ == '__main__':
 
 
     ur5 = Init_ur5(ur5_port)
-    exp_pose_j = [-1.9872496763812464, -1.784063001672262, -1.7090473175048828, -1.241468147640564, 1.5645859241485596, 1.1550921201705933]
-    ur5.movej(exp_pose_j,vel=50/1000,acc=1,wait=True)
+
+    # Prepare pose is 5 mm above sand suraface and angle of attack is 0 deg-- meaning that has least contact area
+    prepare_pose = [-1.9841793219195765, -1.83571257213735, -1.482507348060608, -1.394862489109375, 1.573994517326355, 0.4221869707107544]
+
+    ur5.movej(prepare_pose,vel=50/1000,acc=1,wait=True)
+
 
     fluidlization_pin = 4
     ur5.set_digital_out(fluidlization_pin,1)
     time.sleep(5)
 
-    robot_depth = 60/1000
-    move_ur5(ur5, moving_vector_down*robot_depth, v = 10/1000,a=0.1,wait=True)
-    angle_of_attack = 10
-    rotate_ur(ur5, angle_of_attack/180*pi)
+    robot_depth = 70/1000
+    body_robot_depth = (70+66)/1000
+    move_ur5(ur5, moving_vector_down*body_robot_depth, v = 10/1000,a=0.1,wait=True)
+    angle_of_attack = 0
+    # rotate_ur(ur5, angle_of_attack/180*pi)
 
 
     ur5.set_digital_out(fluidlization_pin,0)
-    time.sleep(10)
+    time.sleep(15)
+    print("exp")
+
     calib_data = Calibrate_Ati_Sensor(ati_gamma, ati_port, message)
 
-    # ur5.set_tool_voltage(12) # Optional vibration
-
-
+    time_a = time.time()
+    data_storage = []
     initial_pose = ur5.get_pos()[:]
     distance = 150/1000
 
     time_a = time.time()
     data_storage = []
     data_storage = collect_oneline(calib_data, time_a, data_storage)
-    data_storage = tictoc(data_storage, pause_time=1)
 
-    repeat_time = 2
-    for _ in range(repeat_time):
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance, vel = 10/1000, acc = 0.1)
-        data_storage = tictoc(data_storage,pause_time=1)
-        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, vel=10/1000, acc = 0.1)
-        data_storage = tictoc(data_storage, pause_time=1)
+    data_storage = tictoc(data_storage, time_a,pause_time=3)
+    # Here add the vibration
+    input("start_vib")
+    time_v = 3 + time_a
+    time_a = time_v
+
+    data_storage = tictoc(data_storage, time_a,pause_time=3)
+
+    repeat_time = 5
+    for jj in range(repeat_time):
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_backward*distance,time_a, vel = 10/1000, acc = 0.1)
+        data_storage = tictoc(data_storage,time_a,pause_time=1)
+        data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, time_a,vel=10/1000, acc = 0.1)
+        data_storage = tictoc(data_storage, time_a,pause_time=1)
 
 
     plt.close('all')
     plt.figure()
-    plot_data(data_storage, key1='y', key2='Fx')
-    # plt.plot(data_storage[:,2])
+    # # plot_data(data_storage, key1='y', key2='Fx')
+    # # plt.plot(data_storage[:,2])
+    # plt.show(block=True)
+
+    sampling_rate = 100/( data_storage[100,0] - data_storage[0,0])
+    cut_off = 10
+    force_data_x = butter_lowpass_filter(data_storage[:,1], cut_off, sampling_rate, 3)
+    force_data_y = butter_lowpass_filter(data_storage[:, 2], cut_off, sampling_rate, 3)
+    force_data_z = butter_lowpass_filter(data_storage[:, 3], cut_off, sampling_rate, 3)
+
+    plt.plot(data_storage[:, -3],force_data_x)
+    plt.plot(data_storage[:, -3],force_data_y)
+    plt.plot(data_storage[:, -3],force_data_z)
     plt.show(block=True)
 
 
-    print((len(data_storage)/data_storage[-1,0]-data_storage[0,0]))
-
-
-    plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 1])
-    # plt.show(block=True)
-
-    plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 2])
-    # plt.show(block=True)
-
-    plt.figure()
-    plt.plot(data_storage[:, 8]*1e3, data_storage[:, 3])
-
-    plt.figure()
-    plt.plot(data_storage[:, 0], data_storage[:, 8])
-
-    plt.figure()
-    plt.plot(data_storage[:, 8])
-    plt.show(block=True)
-
-
-    for ii in range(10):
-        plt.plot(data_storage[:, ii])
+    for ii in range(11):
+        if ii ==0:
+            plt.plot(data_storage[:, ii])
+        else:
+            plt.plot(data_storage[:, 0],data_storage[:, ii])
         plt.show(block=True)
 
+    move_ur5(ur5, moving_vector_up*robot_depth, v = 10/1000,a=0.1,wait=True)
+    ur5.movej(prepare_pose,vel=50/1000,acc=1,wait=True)
 
 
-    numpy.savetxt("no_vib_drag_vel20_dis100.csv",data_storage, fmt='%.18e', delimiter=',',newline='\n')
+    now = datetime.datetime.now()
+    timestamp_str = now.strftime("%Y-%m-%d-%H-%M_")
+
+    # exp_name = "fin_lf"
+    exp_name = "body_qs"
+    rest_of_exp = exp_name+ "_aoa_" + str(angle_of_attack) +".csv"
+    numpy.savetxt(timestamp_str+rest_of_exp,data_storage, fmt='%.18e', delimiter=',',newline='\n')
