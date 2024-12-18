@@ -160,7 +160,8 @@ def collect_oneline(calib_data, time_a, existing_data):
     position_data = ur5.get_pos()[:]
     time_b = time.time() - time_a
     ini_line1 = numpy.append(time_b, ft_data)
-    new_line = numpy.append(ini_line1, position_data)
+    new_line1 = numpy.append(ini_line1, position_data)
+    new_line = numpy.append(new_line1, int(ur5.is_program_running()))
     # time.sleep(0.)
     if len(existing_data) == 0:
         existing_data_1 =  new_line  # Create a new list of lists
