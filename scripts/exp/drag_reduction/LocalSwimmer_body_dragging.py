@@ -190,6 +190,15 @@ def tictoc(data_storage,time_a,pause_time = 3):
         data_storage = collect_oneline(calib_data, time_a, data_storage)
     return data_storage
 
+def tool_io_on(ur5,tool_io=8):
+    ur5.set_tool_voltage(24)
+    ur5.set_digital_out(tool_io,1)
+
+def tool_io_off(ur5,tool_io=8):
+    ur5.set_digital_out(tool_io,0)
+    ur5.set_tool_voltage(0)
+
+
 def plot_data(data,key1='ts',key2='Fx'):
     raw_header = ["ts", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz", "x", "y", "z","isMoving"]
     header = {raw_header: i for i, raw_header in enumerate(raw_header)}
@@ -252,11 +261,8 @@ if __name__ == '__main__':
     data_storage = collect_oneline(calib_data, time_a, data_storage)
 
     data_storage = tictoc(data_storage, time_a,pause_time=3)
-    # Here add the vibration
-    input("start_vib")
-    time_v = 3 + time_a
-    time_a = time_v
-
+    # use tool IO to control the switch
+    tool_io_on(ur5)
     data_storage = tictoc(data_storage, time_a,pause_time=3)
 
     repeat_time = 5
@@ -266,6 +272,7 @@ if __name__ == '__main__':
         data_storage = move_ur5_w_collect(ur5, data_storage, moving_vector_forward* distance, time_a,vel=10/1000, acc = 0.1)
         data_storage = tictoc(data_storage, time_a,pause_time=1)
 
+    tool_io_off(ur5)
 
     plt.close('all')
     plt.figure()
