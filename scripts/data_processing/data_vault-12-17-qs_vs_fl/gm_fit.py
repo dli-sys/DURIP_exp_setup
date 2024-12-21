@@ -5,6 +5,7 @@ matplotlib.use('TkAgg')
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
+import sympy
 
 # Input data
 aoa = np.array([0, 30, 60, 90])  # Angle of attack in degrees
@@ -34,6 +35,7 @@ def rft_Fx(alpha, Cl_alpha, Cd0, Cd_alpha, Cd_alpha2, aspect_ratio, Fx_const):
     Cd_total = Cd + Cd_i
     Fx = Cd_total * np.cos(alpha_rad) - Cl * np.sin(alpha_rad) + Fx_const
     return Fx
+
 
 def rft_Fy(alpha, Cl_alpha, Cd0, Cd_alpha, Cd_alpha2, aspect_ratio, Fy_const):
     alpha_rad = np.deg2rad(alpha)
@@ -70,10 +72,10 @@ Fx_world_fit = rft_Fx(aoa_fine, *popt_Fx)  # Pass all the parameters from popt_F
 Fy_world_fit = rft_Fy(aoa_fine, *popt_Fy)  # Pass all the parameters from popt_Fy
 
 # --- Plotting ---
-plt.figure(figsize=(12, 10))
+plt.figure(figsize=(3.5, 3.5))
 
 # --- Plot 1: Original Data (Fx vs AoA) ---
-plt.subplot(2, 2, 1)
+# plt.subplot(2, 2, 1)
 plt.plot(aoa, Fx, 'ro-', label='Original Data (Fx)')
 plt.xlabel('Angle of Attack (degrees)')
 plt.ylabel('Force (N)')
@@ -82,7 +84,7 @@ plt.grid(True)
 plt.legend()
 
 # --- Plot 2: Original Data (Fy vs AoA) ---
-plt.subplot(2, 2, 3)
+# plt.subplot(2, 2, 3)
 plt.plot(aoa, Fy, 'bo-', label='Original Data (Fy)')
 plt.xlabel('Angle of Attack (degrees)')
 plt.ylabel('Force (N)')
@@ -90,30 +92,44 @@ plt.title('Forces in Plate Frame (Fy)')
 plt.grid(True)
 plt.legend()
 
+
+plt.figure(figsize=(3.5, 3.5*0.8))
+
+font_size = 8
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['font.size'] = font_size
+
+
 # --- Plot 3: World Frame Data (Fx_world vs AoA) ---
-plt.subplot(2, 2, 2)
-plt.plot(aoa, Fx_world, 'ro', label='Original Data (Fx_world)')
-plt.plot(aoa_fine, Fx_world_interp, 'r-', label='Interpolated (Fx_world)')
-plt.plot(aoa_fine, Fx_world_fit, 'g--', label='RFT Fit (Fx_world)')
+# plt.subplot(2, 2, 2)
+plt.plot(aoa, Fx_world, 'ro', label='$F_x$')
+# plt.plot(aoa_fine, Fx_world_interp, 'r-', label='Interpolated $F_x$')
+plt.plot(aoa_fine, Fx_world_fit, 'r--', label='RFT Fit $F_x$')
 plt.xlabel('Angle of Attack (degrees)')
 plt.ylabel('Force (N)')
-plt.title('Forces in World Frame (Fx)')
-plt.grid(True)
-plt.legend()
+# plt.title('Forces in World Frame (Fx)')
+# plt.grid(True)
+# plt.legend()
 
 # --- Plot 4: World Frame Data (Fy_world vs AoA) ---
-plt.subplot(2, 2, 4)
-plt.plot(aoa, Fy_world, 'bo', label='Original Data (Fy_world)')
-plt.plot(aoa_fine, Fy_world_interp, 'b-', label='Interpolated (Fy_world)')
-plt.plot(aoa_fine, Fy_world_fit, 'g--', label='RFT Fit (Fy_world)')
-plt.xlabel('Angle of Attack (degrees)')
+# plt.subplot(2, 2, 4)
+plt.plot(aoa, Fy_world, 'bv', label='F_y')
+# plt.plot(aoa_fine, Fy_world_interp, 'b-', label='$F_y$')
+plt.plot(aoa_fine, Fy_world_fit, 'b--', label='RFT Fit $F_y$')
+plt.xlabel('Angle of attack ($^{\circ}$)')
 plt.ylabel('Force (N)')
-plt.title('Forces in World Frame (Fy)')
-plt.grid(True)
-plt.legend()
+plt.title('Plate dragging force ($F_x$ vs $F_y$)')
+plt.grid(False)
+# plt.legend()
+plt.xlim([-5,95])
+plt.ylim([-15,20])
+plt.xticks([0,30,60,90])
 
 plt.tight_layout()
 plt.show()
+
+plt.savefig("RFT_fit.png", format='png',dpi=600)
+
 
 # --- Print fitted parameters ---
 print("Fitted RFT Parameters (Fx):")
@@ -129,3 +145,28 @@ print(f"  Cd0: {popt_Fy[1]:.4f}")
 print(f"  Cd_alpha: {popt_Fy[2]:.4f}")
 print(f"  Cd_alpha2: {popt_Fy[3]:.4f}")
 print(f"  Aspect Ratio: {popt_Fy[4]:.4f}")
+
+alpha, Cl_alpha, Cd0, Cd_alpha, Cd_alpha2, AR = sympy.symbols('alpha Cl_alpha Cd0 Cd_alpha Cd_alpha2 AR')
+Cl = Cl_alpha * alpha
+Cd = Cd0 + Cd_alpha * alpha + Cd_alpha2 * alpha**2
+Cd_i = Cl**2 / (sympy.pi * AR)
+Cd_total = Cd + Cd_i
+Fx_constant = sympy.symbols('F_xC')
+Fy_constant = sympy.symbols('F_yC')
+
+# def rft_Fy(alpha, Cl_alpha, Cd0, Cd_alpha, Cd_alpha2, aspect_ratio, Fy_const):
+
+Fx_eqn = sympy.Eq(sympy.Symbol('Fx'), Cd_total * sympy.cos(alpha) - Cl * sympy.sin(alpha) + Fx_constant)
+Fy_eqn = sympy.Eq(sympy.Symbol('Fy'), Cd_total * sympy.sin(alpha) + Cl * sympy.cos(alpha) + Fy_constant)
+
+# Substitute the fitted values
+Fx_eqn_fitted = Fx_eqn.subs({Cl_alpha: popt_Fx[0], Cd0: popt_Fx[1], Cd_alpha: popt_Fx[2],
+                             Cd_alpha2: popt_Fx[3], AR: popt_Fx[4],Fx_constant:popt_Fx[-1]})
+Fy_eqn_fitted = Fy_eqn.subs({Cl_alpha: popt_Fy[0], Cd0: popt_Fy[1], Cd_alpha: popt_Fy[2],
+                             Cd_alpha2: popt_Fy[3], AR: popt_Fy[4],Fy_constant:popt_Fy[-1]})
+
+print("\nFitted RFT Equations (Fx):")
+sympy.pprint(Fx_eqn_fitted)
+
+print("\nFitted RFT Equations (Fy):")
+sympy.pprint(Fy_eqn_fitted)
