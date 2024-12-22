@@ -101,15 +101,16 @@ plt.plot(aoa_fine, Fy_lf_world_fit, 'b--', label='RFT Fit $F_{y,lf}$')
 
 plt.xlabel('Angle of attack ($^{\circ}$)')
 plt.ylabel('Force (N)')
-plt.title('Plate dragging force')
+plt.title('Drag force of intruder')
 plt.grid(False)
 plt.xlim([-5, 95])
-# plt.ylim([-15, 20])
+plt.ylim([-9, 19])
 plt.xticks([0, 30, 60, 90])
+plt.rcParams['figure.figsize'] = (3.5, 3.5/0.8)
+plt.show()
 # plt.legend()
 plt.tight_layout()
-plt.savefig("RFT_fit.png", format='png', dpi=600)
-plt.show()
+plt.savefig("RFT_fit.pdf", format='pdf', dpi=600)
 
 
 
