@@ -229,7 +229,7 @@ if __name__ == '__main__':
     ur5 = Init_ur5(ur5_port)
 
     # Prepare pose is 5 mm above sand suraface and angle of attack is 0 deg-- meaning that has least contact area
-    prepare_pose = [-1.9841793219195765, -1.83571257213735, -1.482507348060608, -1.394862489109375, 1.573994517326355, 0.4221869707107544]
+    prepare_pose = [-2.020201031361715, -1.7606431446471156, -1.6147208213806152, -1.3379746240428467, 1.5739325284957886, -1.1845234076129358]
 
     ur5.movej(prepare_pose,vel=50/1000,acc=1,wait=True)
 
@@ -239,10 +239,10 @@ if __name__ == '__main__':
     time.sleep(5)
 
     robot_depth = 70/1000
-    body_robot_depth = (70+66)/1000
-    move_ur5(ur5, moving_vector_down*body_robot_depth, v = 10/1000,a=0.1,wait=True)
-    angle_of_attack = 0
-    # rotate_ur(ur5, angle_of_attack/180*pi)
+    # body_robot_depth = (70+66)/1000
+    move_ur5(ur5, moving_vector_down*robot_depth, v = 10/1000,a=0.1,wait=True)
+    angle_of_attack = 90
+    rotate_ur(ur5, angle_of_attack/180*pi,warning=False)
 
 
     ur5.set_digital_out(fluidlization_pin,0)
@@ -307,6 +307,8 @@ if __name__ == '__main__':
     timestamp_str = now.strftime("%Y-%m-%d-%H-%M_")
 
     # exp_name = "fin_lf"
+    # exp_name = "body_qs"
     exp_name = "body_qs"
     rest_of_exp = exp_name+ "_aoa_" + str(angle_of_attack) +".csv"
     numpy.savetxt(timestamp_str+rest_of_exp,data_storage, fmt='%.18e', delimiter=',',newline='\n')
+    print("aa")
