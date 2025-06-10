@@ -76,7 +76,7 @@ def get_data(sock, msg):
     raw = np.array(extract_raw(packet))
     return raw / COUNTS_PER_UNIT
 
-def log_during_duration(robot, sock, msg, calib, initial_pose, duration, data_log, global_start):
+def log_during_duration(robot, sock, msg, calib, initial_pose, duration, data_log):
     t_start = time.time()
     while time.time() - t_start < duration:
         t_now = time.time() - data_log[0, 1] if data_log.size else 0.0
@@ -105,11 +105,11 @@ if __name__ == '__main__':
     # Config
     ati_ip = "192.168.0.121"
     ur5_ip = "192.168.0.110"
-    repeat_time = 4
+    repeat_time = 1
     move_distance = 0.1  # meters
     velocity = 0.02       # m/s
     acceleration = 0.1
-    down_depth = 0.08     # meters
+    down_depth = 0.01     # meters
     fluidization_pin = 4
 
     vecs = {
@@ -132,8 +132,6 @@ if __name__ == '__main__':
         prepare_j = [-1.5871, -1.7489, -2.0817, -0.8993, 1.5704, 2.4225]
         ur5.movej(prepare_j, vel=0.03, acc=1, wait=True)
 
-
-
     input("Start fluid, press Enter to continue")
 
     print("Skipping recalibration — using initial air calibration.")
@@ -145,24 +143,23 @@ if __name__ == '__main__':
 
     print("Activating fluidization (DO4 HIGH)...")
     ur5.set_digital_out(fluidization_pin, 1)
-    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=1, data_log=data_log, global_start=global_start)
+    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=2, data_log=data_log)
 
     print(f"Inserting object to depth {down_depth*1000:.1f} mm...")
     data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['down'] * down_depth, vel=0.02, acc=1, initial_pose=initial_pose,data_log=data_log)
+
 
     print("Holding position — logging will continue.")
 
     print("Deactivating fluidization (DO4 LOW) and letting system settle...")
     ur5.set_digital_out(fluidization_pin, 0)
-    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=1, data_log=data_log,global_start=global_start)
+    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=3, data_log=data_log)
 
     for _ in range(repeat_time):
         data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log,
                                       vecs['right'] * move_distance, velocity, acceleration, initial_pose,data_log=data_log)
         data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log,
                                       vecs['left'] * move_distance, velocity, acceleration, initial_pose,data_log=data_log)
-
-    data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['up'] * down_depth, vel=0.02, acc=1, initial_pose=initial_pose,data_log=data_log)
 
     print(f"Sampling rate: {len(data_log)/(data_log[-1,1]-data_log[0,1]):.2f} Hz")
 
