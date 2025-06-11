@@ -76,29 +76,79 @@ def get_data(sock, msg):
     raw = np.array(extract_raw(packet))
     return raw / COUNTS_PER_UNIT
 
-def log_during_duration(robot, sock, msg, calib, initial_pose, duration, data_log):
-    t_start = time.time()
-    while time.time() - t_start < duration:
-        t_now = time.time() - data_log[0, 1] if data_log.size else 0.0
+# def log_during_duration(robot, sock, msg, calib, initial_pose, duration, data_log):
+#     t_start = time.time()
+#     while time.time() - t_start < duration:
+#         t_now = time.time() - data_log[0, 1] if data_log.size else 0.0
+#         pos = robot.get_pos() - initial_pose
+#         ft = get_data(sock, msg) - calib
+#         new_row = [len(data_log), t_now] + list(pos) + list(ft)
+#         data_log = np.vstack([data_log, new_row]) if data_log.size else np.array([new_row])
+#     return data_log
+
+
+def log_during_duration(robot, sock, msg, calib,
+                        initial_pose,duration, data_log, time_ref, dt=0.01):
+    """
+    Log for `duration` seconds, sampling every dt,
+    stamping each row with t_now = time.time() - time_ref.
+    """
+    t_end = time_ref + duration
+    while time.time() < t_end:
+        t_now = time.time() - time_ref
+
+        # Pose relative to initial
         pos = robot.get_pos() - initial_pose
+
+        # Force/torque reading
         ft = get_data(sock, msg) - calib
-        new_row = [len(data_log), t_now] + list(pos) + list(ft)
-        data_log = np.vstack([data_log, new_row]) if data_log.size else np.array([new_row])
+
+        # Build row: [index, t_now, x,y,z, Fx,Fy,Fz,...]
+        idx = len(data_log)
+        row = [idx, t_now] + list(pos) + list(ft)
+
+        data_log = np.vstack([data_log, row]) if data_log.size else np.array([row])
+        time.sleep(dt)
+
     return data_log
 
-def move_ur5_w_collect(robot, sock, msg, calib, data, move_vec, vel, acc, initial_pose, data_log):
+def move_ur5_w_collect(robot, sock, msg, calib,
+                       data_log, move_vec,vel, acc, initial_pose, time_ref, dt=0.01):
+    """
+    Move by move_vec and collect data until motion finishes.
+    """
     start_pose = robot.get_pos()
     total_dist = np.linalg.norm(move_vec)
-    move_ur5(robot, move_vec, vel=vel, acc=acc, wait=False)
-    t_start = time.time()
 
+    # fire off motion
+    move_ur5(robot, move_vec, vel=vel, acc=acc, wait=False)
+
+    # loop until nearly at goal
     while np.linalg.norm(robot.get_pos() - start_pose) < total_dist * 0.995:
-        t_now = time.time() - global_start
-        ft = get_data(sock, msg) - calib
-        pos_diff = robot.get_pos() - initial_pose
-        new_row = [len(data), t_now] + list(pos_diff) + list(ft)
-        data = np.vstack([data, new_row]) if data.size else np.array([new_row])
-    return data
+        t_now = time.time() - time_ref
+        pos = robot.get_pos() - initial_pose
+        ft  = get_data(sock, msg) - calib
+        idx = len(data_log)
+        row = [idx, t_now] + list(pos) + list(ft)
+
+        data_log = np.vstack([data_log, row])
+        time.sleep(dt)
+
+    return data_log
+
+# def move_ur5_w_collect(robot, sock, msg, calib, data, move_vec, vel, acc, initial_pose, data_log):
+#     start_pose = robot.get_pos()
+#     total_dist = np.linalg.norm(move_vec)
+#     move_ur5(robot, move_vec, vel=vel, acc=acc, wait=False)
+#     t_start = time.time()
+#
+#     while np.linalg.norm(robot.get_pos() - start_pose) < total_dist * 0.995:
+#         t_now = time.time() - global_start
+#         ft = get_data(sock, msg) - calib
+#         pos_diff = robot.get_pos() - initial_pose
+#         new_row = [len(data), t_now] + list(pos_diff) + list(ft)
+#         data = np.vstack([data, new_row]) if data.size else np.array([new_row])
+#     return data
 
 if __name__ == '__main__':
     global_start = time.time()
@@ -136,30 +186,40 @@ if __name__ == '__main__':
 
     print("Skipping recalibration — using initial air calibration.")
     initial_pose = ur5.get_pos()
+    global_start = time.time()
     ft = get_data(sock, msg) - calib_data
     pos = ur5.get_pos() - initial_pose
-    initial_row = [0, 0.0] + list(pos) + list(ft)
+    initial_row = [0, time.time()-global_start] + list(pos) + list(ft)
     data_log = np.array([initial_row])
 
     print("Activating fluidization (DO4 HIGH)...")
     ur5.set_digital_out(fluidization_pin, 1)
-    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=2, data_log=data_log)
-
+    data_log = log_during_duration(
+        ur5, sock, msg, calib_data, initial_pose,
+        duration=2, data_log=data_log,
+        time_ref=global_start, dt=0.01
+    )
     print(f"Inserting object to depth {down_depth*1000:.1f} mm...")
-    data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['down'] * down_depth, vel=0.02, acc=1, initial_pose=initial_pose,data_log=data_log)
-
+    data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['down'] * down_depth, velocity,
+                                  acceleration, initial_pose, global_start, dt=0.01)
 
     print("Holding position — logging will continue.")
 
     print("Deactivating fluidization (DO4 LOW) and letting system settle...")
     ur5.set_digital_out(fluidization_pin, 0)
-    data_log = log_during_duration(ur5, sock, msg, calib_data, initial_pose, duration=3, data_log=data_log)
+    data_log = log_during_duration(
+        ur5, sock, msg, calib_data, initial_pose,
+        duration=2, data_log=data_log,
+        time_ref=global_start, dt=0.01
+    )
+
 
     for _ in range(repeat_time):
-        data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log,
-                                      vecs['right'] * move_distance, velocity, acceleration, initial_pose,data_log=data_log)
-        data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log,
-                                      vecs['left'] * move_distance, velocity, acceleration, initial_pose,data_log=data_log)
+        data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['right'] * move_distance, velocity,
+                                      acceleration, initial_pose, global_start, dt=0.01)
+
+        data_log = move_ur5_w_collect(ur5, sock, msg, calib_data, data_log, vecs['left'] * move_distance, velocity,
+                                      acceleration, initial_pose, global_start, dt=0.01)
 
     print(f"Sampling rate: {len(data_log)/(data_log[-1,1]-data_log[0,1]):.2f} Hz")
 
