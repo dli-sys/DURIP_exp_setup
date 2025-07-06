@@ -1,4 +1,4 @@
-Copyright (c) [Dongting Li] [2025]
+Copyright (c) Dongting Li 2023
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to use
@@ -7,6 +7,18 @@ the Software for personal, academic, or internal purposes only.
 THE SOFTWARE MAY NOT BE COPIED, MODIFIED, MERGED, PUBLISHED, DISTRIBUTED,
 SUBLICENSED, OR SOLD IN ANY FORM WITHOUT EXPRESS WRITTEN PERMISSION FROM
 THE COPYRIGHT HOLDER.
+
+Any publication, presentation, or research output derived from the use of this
+Software must include proper citation or acknowledgment. Users should include
+the following BibTeX citation (or a similar reference) in any related work:
+
+@misc{li2023mosoro,
+  author       = {Dongting Li},
+  title        = {{UCSD-DURIP MoSoRo Platform Tutorial Code}},
+  year         = {2023},
+  howpublished = {\url{https://github.com/dli-sys/DURIP_exp_setup}},
+  note         = {Accessed: YYYY-MM-DD}
+}
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
