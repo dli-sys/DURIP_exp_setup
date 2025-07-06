@@ -1,4 +1,5 @@
-**Edition 3, advised: 06-02-2024**
+**Edition 4, advised: 06-02-2025**
+
 # 1 Robot arm safety
 
 ## 1.1 Robot arm check list
@@ -35,6 +36,7 @@ Make sure you check each of the settings before running any program
 
 # 2 Python environment settings
 **GitHub repo hosting the codes: https://github.com/dli-sys/DURIP_exp_setup**. Ask dongting to add you to the repo. Check out the "readme.md" and following the instruction
+
 # 3 Load cell safety
 
 1. Connect the load cell to the DAQ box
@@ -45,3 +47,37 @@ Make sure you check each of the settings before running any program
 		1. Sampling rate
 		2. Transformation matrix
 		3. Low pass filter
+
+
+
+# License
+
+Copyright (c) Dongting Li 2023
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use
+the Software for personal, academic, or internal purposes only.
+
+THE SOFTWARE MAY NOT BE COPIED, MODIFIED, MERGED, PUBLISHED, DISTRIBUTED,
+SUBLICENSED, OR SOLD IN ANY FORM WITHOUT EXPRESS WRITTEN PERMISSION FROM
+THE COPYRIGHT HOLDER.
+
+Any publication, presentation, or research output derived from the use of this
+Software must include proper citation or acknowledgment. Users should include
+the following BibTeX citation (or a similar reference) in any related work:
+
+@misc{li2023mosoro,
+  author       = {Dongting Li},
+  title        = {{UCSD-DURIP MoSoRo Platform Tutorial Code}},
+  year         = {2023},
+  howpublished = {\url{https://github.com/dli-sys/DURIP_exp_setup}},
+  note         = {Accessed: YYYY-MM-DD}
+}
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
