@@ -66,6 +66,7 @@ Any publication, presentation, or research output derived from the use of this
 Software must include proper citation or acknowledgment. Users should include
 the following BibTeX citation (or a similar reference) in any related work:
 
+```latex
 @misc{li2023mosoro,
   author       = {Dongting Li},
   title        = {{UCSD-DURIP MoSoRo Platform Tutorial Code}},
@@ -73,6 +74,7 @@ the following BibTeX citation (or a similar reference) in any related work:
   howpublished = {\url{https://github.com/dli-sys/DURIP_exp_setup}},
   note         = {Accessed: YYYY-MM-DD}
 }
+```
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
